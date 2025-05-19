@@ -9,20 +9,48 @@ export async function POST(request) {
     await connectToDatabase();
     const body = await request.json();
 
+
+    // Predeclare ASR number to avoid reference errors in case generation fails
+    let asrNumber = '';
+
     let capabilityId = body.capabilityId || null;
-    if (
-      capabilityId &&
-      typeof capabilityId === 'string' &&
-      !mongoose.Types.ObjectId.isValid(capabilityId)
-    ) {
-      const found = await Capability.findOne({
-        $or: [
-          { shortName: capabilityId },
-          { capabilityName: capabilityId },
-        ],
-      }).select('_id');
-      capabilityId = found ? found._id : null;
+    let capabilityDoc = null;
+
+    if (capabilityId) {
+      if (typeof capabilityId === 'string' && !mongoose.Types.ObjectId.isValid(capabilityId)) {
+        capabilityDoc = await Capability.findOne({
+          $or: [
+            { shortName: capabilityId },
+            { capabilityName: capabilityId },
+          ],
+        });
+      } else {
+        capabilityDoc = await Capability.findById(capabilityId);
+      }
     }
+
+    if (!capabilityDoc || !capabilityDoc.shortName) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid capability' },
+        { status: 400 }
+      );
+    }
+
+    capabilityId = capabilityDoc._id;
+
+    const now = new Date();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const yy = String(now.getFullYear()).slice(-2);
+    const runNo = parseInt(capabilityDoc.reqAsrRunNo, 10);
+    const seq = Number.isNaN(runNo) ? 1 : runNo + 1;
+    const shortName = capabilityDoc.shortName || 'UNK';
+    asrNumber = `${shortName}-A-${mm}${yy}-${seq.toString().padStart(5, '0')}`;
+
+    // update run number
+    capabilityDoc.reqAsrRunNo = seq.toString();
+    await capabilityDoc.save();
+
+
 
     const asrData = {
       asrNumber,
@@ -51,6 +79,11 @@ export async function POST(request) {
     return NextResponse.json({ success: true, data: { asrNumber, asrId: newAsr._id.toString() } }, { status: 201 });
   } catch (error) {
     console.error('Error submitting ASR:', error);
-    return NextResponse.json({ success: false, error: error.message || 'Failed to submit ASR' }, { status: 500 });
+
+    return NextResponse.json(
+      { success: false, error: error.message || 'Failed to submit ASR' },
+      { status: 500 }
+    );
+
   }
 }

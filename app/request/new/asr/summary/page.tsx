@@ -178,9 +178,12 @@ export default function ASRSummaryPage() {
           window.location.href = '/request/new/asr/confirmation'
         }, 1000)
       } else {
+
+        const message = error instanceof Error ? error.message : 'Could not connect to the server. Please try again.'
         toast({
           title: 'Submission failed',
-          description: 'Could not connect to the server. Please try again.',
+          description: message,
+
           variant: 'destructive',
         })
       }

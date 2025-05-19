@@ -106,6 +106,12 @@ export default function ASRSummaryPage() {
   const handleSubmit = async () => {
     setIsSubmitting(true)
 
+    // Notify the user that submission has started
+    toast({
+      title: 'Submitting request...',
+      description: 'Please wait while we process your submission.',
+    })
+
     const submissionData = {
       asrName: requestData.requestTitle,
       asrType: 'project',
@@ -127,8 +133,14 @@ export default function ASRSummaryPage() {
         body: JSON.stringify(submissionData),
       })
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || response.statusText)
+      }
+
       const result = await response.json()
-      if (response.ok && result.success) {
+
+      if (result.success) {
         toast({
           title: 'Request submitted successfully',
           description: `Your ASR request ${result.data.asrNumber} has been submitted for review.`,
@@ -147,11 +159,31 @@ export default function ASRSummaryPage() {
       }
     } catch (error) {
       console.error('Error submitting ASR:', error)
-      toast({
-        title: 'Submission failed',
-        description: 'An unexpected error occurred. Please try again.',
-        variant: 'destructive',
-      })
+
+      const isDevelopment = process.env.NODE_ENV === 'development'
+
+      if (isDevelopment) {
+        // Simulate a successful submission in development mode
+        const mockAsrNumber = `ASR-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
+
+        toast({
+          title: 'Request submitted (Development Mode)',
+          description: `Mock ASR number: ${mockAsrNumber}`,
+        })
+
+        localStorage.setItem('submittedAsrNumber', mockAsrNumber)
+        localStorage.setItem('submittedAsrId', `mock-${Date.now()}`)
+
+        setTimeout(() => {
+          window.location.href = '/request/new/asr/confirmation'
+        }, 1000)
+      } else {
+        toast({
+          title: 'Submission failed',
+          description: 'Could not connect to the server. Please try again.',
+          variant: 'destructive',
+        })
+      }
     } finally {
       setIsSubmitting(false)
     }

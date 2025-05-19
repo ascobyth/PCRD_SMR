@@ -1,0 +1,385 @@
+"use client"
+
+import { useState } from "react"
+import Link from "next/link"
+import { ChevronLeft, Check, AlertCircle, ArrowRight } from "lucide-react"
+import DashboardLayout from "@/components/dashboard-layout"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+import { Textarea } from "@/components/ui/textarea"
+import { toast } from "@/components/ui/use-toast"
+
+export default function ASRSummaryPage() {
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [additionalNotes, setAdditionalNotes] = useState("")
+
+  // Mock data for the request summary
+  const requestData = {
+    requestId: "ASR-2023-0124",
+    requestTitle: "PP Degradation Investigation",
+    priority: "normal",
+    useIONumber: "yes",
+    ioNumber: "0090919391",
+    costCenter: "0090-01560",
+    problemSource: "production",
+    testObjective:
+      "Investigate the cause of unexpected degradation in PP products during processing. We need to understand if the issue is related to thermal stability, contamination, or other factors.",
+    expectedResults:
+      "Identification of the root cause of degradation and recommendations for process adjustments to prevent the issue.",
+    desiredCompletionDate: "2023-11-15",
+    samples: [
+      {
+        generatedName: "PP1100NK_L2023001_A1",
+        category: "commercial",
+        type: "PP",
+        form: "Pellet",
+      },
+      {
+        generatedName: "PP2100JC_L2023002_B1",
+        category: "commercial",
+        type: "PP",
+        form: "Pellet",
+      },
+      {
+        generatedName: "PP1_2023-10-15_14:30_Sample3",
+        category: "inprocess",
+        type: "PP",
+        form: "Pellet",
+      },
+    ],
+    selectedCapabilities: ["rheology", "small-molecule"],
+    additionalRequirements:
+      "We would like to compare the degraded samples with standard samples to identify differences. Please include thermal stability analysis and check for potential contaminants.",
+    attachments: [
+      { name: "degradation_images.zip", size: 2560000 },
+      { name: "process_conditions.pdf", size: 1240000 },
+    ],
+    estimatedCompletion: "2023-11-20",
+    estimatedCost: "25000-35000 THB",
+    requester: {
+      name: "John Doe",
+      department: "R&D",
+      email: "john.doe@example.com",
+      phone: "123-456-7890",
+    },
+  }
+
+  // Map capability IDs to names
+  const capabilityNames = {
+    microstructure: "Microstructure",
+    rheology: "Rheology",
+    "small-molecule": "Small Molecule",
+    mesostructure: "Mesostructure & Imaging",
+  }
+
+  const handleSubmit = () => {
+    setIsSubmitting(true)
+
+    // Simulate API call
+    setTimeout(() => {
+      toast({
+        title: "Request submitted successfully",
+        description: `Your ASR request ${requestData.requestId} has been submitted for review.`,
+      })
+
+      // Redirect to confirmation page
+      window.location.href = "/request/new/asr/confirmation"
+    }, 2000)
+  }
+
+  return (
+    <DashboardLayout>
+      <div className="flex flex-col space-y-6">
+        <div className="flex items-center space-x-2">
+          <Link href="/request/new/asr">
+            <Button variant="ghost" size="sm" className="gap-1">
+              <ChevronLeft className="h-4 w-4" />
+              Back to ASR Form
+            </Button>
+          </Link>
+        </div>
+
+        <div className="flex flex-col space-y-2">
+          <div className="flex items-center justify-between">
+            <h1 className="text-3xl font-bold tracking-tight">Review ASR Request</h1>
+            <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+              Draft
+            </Badge>
+          </div>
+          <p className="text-muted-foreground">Review your request details before submission</p>
+        </div>
+
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="md:col-span-2 space-y-6">
+            {/* Request Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Request Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Request ID</p>
+                    <p>{requestData.requestId}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Priority</p>
+                    <p className="capitalize">{requestData.priority}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-sm font-medium text-muted-foreground">Request Title</p>
+                    <p>{requestData.requestTitle}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">IO Number</p>
+                    <p>{requestData.ioNumber}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Cost Center</p>
+                    <p>{requestData.costCenter}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Problem Description */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Problem Description</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Problem Source</p>
+                  <p className="capitalize">
+                    {requestData.problemSource === "production" ? "Production Issue" : requestData.problemSource}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Test Objectives</p>
+                  <p>{requestData.testObjective}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Samples */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Samples ({requestData.samples.length})</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {requestData.samples.map((sample, index) => (
+                    <div key={index} className="flex justify-between items-center p-3 border rounded-md">
+                      <div>
+                        <p className="font-medium">{sample.generatedName}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {sample.category} • {sample.type} • {sample.form}
+                        </p>
+                      </div>
+                      <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                        <Check className="h-3 w-3 mr-1" /> Ready
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Expected Results and Timeline */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Expected Results and Timeline</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Expected Results</p>
+                  <p>{requestData.expectedResults}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Desired Completion Date</p>
+                  <p>{requestData.desiredCompletionDate}</p>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Capabilities */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Selected Capabilities</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex flex-wrap gap-2">
+                  {requestData.selectedCapabilities.map((capability) => (
+                    <Badge key={capability} className="bg-blue-100 text-blue-800 border-blue-200 px-3 py-1">
+                      {capabilityNames[capability as keyof typeof capabilityNames]}
+                    </Badge>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Additional Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Additional Information</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Additional Requirements</p>
+                  <p>{requestData.additionalRequirements}</p>
+                </div>
+
+                {requestData.attachments.length > 0 && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground mb-2">Attachments</p>
+                    <div className="space-y-2">
+                      {requestData.attachments.map((file, index) => (
+                        <div key={index} className="flex items-center p-2 border rounded-md">
+                          <span className="text-sm font-medium">{file.name}</span>
+                          <span className="text-xs text-muted-foreground ml-2">
+                            ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-muted-foreground">Additional Notes for Reviewers</p>
+                  <Textarea
+                    placeholder="Add any additional notes or context for the capability experts reviewing your request..."
+                    value={additionalNotes}
+                    onChange={(e) => setAdditionalNotes(e.target.value)}
+                    className="min-h-[100px]"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Action buttons */}
+            <div className="flex justify-between">
+              <Link href="/request/new/asr">
+                <Button variant="outline">
+                  <ChevronLeft className="mr-2 h-4 w-4" />
+                  Edit Request
+                </Button>
+              </Link>
+              <Button
+                className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600"
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? "Submitting..." : "Submit Request"}
+                {!isSubmitting && <ArrowRight className="ml-2 h-4 w-4" />}
+              </Button>
+            </div>
+          </div>
+
+          <div className="md:col-span-1">
+            {/* Summary card */}
+            <Card className="mb-6">
+              <CardHeader>
+                <CardTitle>Request Summary</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Requester</p>
+                    <p className="font-medium">{requestData.requester.name}</p>
+                    <p className="text-sm text-muted-foreground">{requestData.requester.department}</p>
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Samples</p>
+                    <p className="text-2xl font-bold">{requestData.samples.length}</p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Selected Capabilities</p>
+                    <p className="text-2xl font-bold">{requestData.selectedCapabilities.length}</p>
+                  </div>
+
+                  <Separator />
+
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Estimated Cost Range</p>
+                    <p className="text-2xl font-bold">{requestData.estimatedCost}</p>
+                    <p className="text-xs text-muted-foreground">Final cost will be determined after review</p>
+                  </div>
+
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Estimated Completion</p>
+                    <p className="text-2xl font-bold">{requestData.estimatedCompletion}</p>
+                    <p className="text-xs text-muted-foreground">Subject to capability expert review</p>
+                  </div>
+
+                  <div className="bg-amber-50 border border-amber-200 rounded-md p-3 flex items-start space-x-2">
+                    <AlertCircle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-sm font-medium text-amber-800">Request Status: Draft</p>
+                      <p className="text-xs text-amber-700 mt-1">
+                        This request has not been submitted yet. Review the details and click "Submit Request" when
+                        ready.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* ASR Process card */}
+            <Card className="bg-blue-50 border-blue-200">
+              <CardHeader>
+                <CardTitle className="text-blue-800">ASR Process</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3 text-sm text-blue-700">
+                  <div className="flex items-start space-x-2">
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-blue-800 text-xs mt-0.5">
+                      1
+                    </div>
+                    <p>Submit your ASR request with all relevant details and samples</p>
+                  </div>
+
+                  <div className="flex items-start space-x-2">
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-blue-800 text-xs mt-0.5">
+                      2
+                    </div>
+                    <p>Capability experts review your request and may contact you for clarification</p>
+                  </div>
+
+                  <div className="flex items-start space-x-2">
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-blue-800 text-xs mt-0.5">
+                      3
+                    </div>
+                    <p>Once approved, your request is assigned to researchers who will develop a testing plan</p>
+                  </div>
+
+                  <div className="flex items-start space-x-2">
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-blue-800 text-xs mt-0.5">
+                      4
+                    </div>
+                    <p>You'll receive regular updates and can collaborate with the research team</p>
+                  </div>
+
+                  <div className="flex items-start space-x-2">
+                    <div className="flex h-5 w-5 items-center justify-center rounded-full bg-blue-200 text-blue-800 text-xs mt-0.5">
+                      5
+                    </div>
+                    <p>Final results and recommendations are delivered in a comprehensive report</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </DashboardLayout>
+  )
+}
+

@@ -195,6 +195,11 @@ export default function RequestSummaryPage() {
     }
   }, [])
 
+  const handleDownloadPdf = () => {
+    // Basic print-to-PDF for now
+    window.print()
+  }
+
   const handleSubmit = async () => {
     try {
       // Show loading toast
@@ -780,13 +785,9 @@ export default function RequestSummaryPage() {
             {/* Action buttons */}
             <div className="flex justify-between">
               <div className="flex space-x-3">
-                <Button variant="outline" className="gap-2">
+                <Button variant="outline" className="gap-2" onClick={handleDownloadPdf}>
                   <Download className="h-4 w-4" />
                   Download PDF
-                </Button>
-                <Button variant="outline" className="gap-2">
-                  <Printer className="h-4 w-4" />
-                  Print
                 </Button>
               </div>
               <div className="flex space-x-3">

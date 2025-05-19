@@ -18,6 +18,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from "@/components/ui/use-toast"
 import { AutocompleteInput } from "@/components/ui/autocomplete-input"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 
 export default function ASRPage() {
   const router = useRouter()
@@ -65,6 +73,7 @@ export default function ASRPage() {
   const [showSampleSections, setShowSampleSections] = useState(false)
   const [highlightedField, setHighlightedField] = useState<string | null>("sample-category")
   const [showFileUpload, setShowFileUpload] = useState(false)
+  const [sampleDialogOpen, setSampleDialogOpen] = useState(false)
 
   // Required fields for each sample category - reusing from NTR
   const requiredFields = {
@@ -416,40 +425,45 @@ export default function ASRPage() {
         generatedName: "",
       }))
 
-      // Scroll to Sample Summary section and highlight the "Add more sample" button
-      if (sampleSummaryRef.current) {
-        sampleSummaryRef.current.scrollIntoView({ behavior: "smooth" })
-
-        setTimeout(() => {
-          if (addMoreButtonRef.current) {
-            setFocusedSection("addMore")
-            addMoreButtonRef.current.focus()
-            setTimeout(() => setFocusedSection(null), 2000) // Remove highlight after 2 seconds
-          }
-        }, 500)
-      }
+      setSampleDialogOpen(false)
 
       // Reset highlighted field
       setHighlightedField(null)
 
-      // After adding, highlight the sample identity field for the next sample
-      setTimeout(() => {
-        setHighlightedField("sampleIdentity")
-        const element = document.getElementById("sample-identity")
-        if (element) {
-          element.focus()
-        }
-      }, 2100)
     }
   }
 
-  // Add a function to focus on the Automatic Sample Naming System
-  const focusOnNamingSystem = () => {
-    if (automaticNamingRef.current) {
-      automaticNamingRef.current.scrollIntoView({ behavior: "smooth" })
-      setFocusedSection("naming")
-      setTimeout(() => setFocusedSection(null), 2000) // Remove highlight after 2 seconds
-    }
+  const openAddSampleDialog = () => {
+    setEditMode(false)
+    setEditingSampleIndex(null)
+    setCurrentSample({
+      category: "",
+      grade: "",
+      lot: "",
+      sampleIdentity: "",
+      type: "",
+      form: "",
+      tech: "",
+      feature: "",
+      plant: "",
+      samplingDate: "",
+      samplingTime: "",
+      generatedName: "",
+    })
+    setSampleCategory("")
+    setShowSampleSections(true)
+    setSampleDialogOpen(true)
+    setTimeout(() => {
+      highlightNextEmptyField()
+    }, 100)
+  }
+
+  const openEditSampleDialog = (sample: any, index: number) => {
+    setCurrentSample({ ...sample })
+    setSampleCategory(sample.category)
+    setEditMode(true)
+    setEditingSampleIndex(index)
+    setSampleDialogOpen(true)
   }
 
   // Update the handleRemoveSample function
@@ -468,16 +482,11 @@ export default function ASRPage() {
 
   // Update the handleCopySample function
   const handleCopySample = (sample: any) => {
-    // Set current sample to the copied sample
     setCurrentSample({ ...sample })
     setSampleCategory(sample.category)
-
-    // Exit edit mode if it was active
     setEditMode(false)
     setEditingSampleIndex(null)
-
-    // Focus on the automatic naming section
-    focusOnNamingSystem()
+    setSampleDialogOpen(true)
 
     toast({
       title: "Sample copied",
@@ -487,16 +496,7 @@ export default function ASRPage() {
 
   // Update the handleEditSample function
   const handleEditSample = (sample: any, index: number) => {
-    // Set current sample to this sample for editing
-    setCurrentSample({ ...sample })
-    setSampleCategory(sample.category)
-
-    // Enter edit mode
-    setEditMode(true)
-    setEditingSampleIndex(index)
-
-    // Focus on the automatic naming section
-    focusOnNamingSystem()
+    openEditSampleDialog(sample, index)
   }
 
   const nextStep = () => {
@@ -599,17 +599,7 @@ export default function ASRPage() {
 
   // Function to start adding samples
   const startAddingSamples = () => {
-    setShowSampleSections(true)
-    setTimeout(() => {
-      if (automaticNamingRef.current) {
-        automaticNamingRef.current.scrollIntoView({ behavior: "smooth" })
-        setFocusedSection("naming")
-        setTimeout(() => {
-          setFocusedSection(null)
-          highlightNextEmptyField()
-        }, 1000)
-      }
-    }, 100)
+    openAddSampleDialog()
   }
 
   // Function to render sample form fields based on category
@@ -1402,14 +1392,14 @@ export default function ASRPage() {
               </Card>
             )}
 
-            {currentStep === 3 && (
+              {currentStep === 3 && (
               <Card className="w-full">
                 <CardHeader>
                   <CardTitle>Sample Information</CardTitle>
                   <CardDescription>Add one or more samples for analysis</CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {!showSampleSections && formData.samples.length === 0 ? (
+                  {formData.samples.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12">
                       <div className="text-center space-y-4">
                         <h3 className="text-lg font-medium">No samples added yet</h3>
@@ -1418,11 +1408,11 @@ export default function ASRPage() {
                           process step by step.
                         </p>
                         <Button
-                          onClick={startAddingSamples}
+                          onClick={openAddSampleDialog}
                           className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600"
                         >
                           <Plus className="mr-2 h-4 w-4" />
-                          Click to start adding samples
+                          Add New Sample
                         </Button>
                       </div>
                     </div>
@@ -1431,245 +1421,71 @@ export default function ASRPage() {
                       <div className="flex justify-between items-center">
                         <div className="space-y-1">
                           <h3 className="text-lg font-medium">Samples</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {formData.samples.length === 0
-                              ? "No samples added yet. Use the automatic naming system to add samples."
-                              : `${formData.samples.length} sample(s) added`}
-                          </p>
+                          <p className="text-sm text-muted-foreground">{`${formData.samples.length} sample(s) added`}</p>
                         </div>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={openAddSampleDialog}
+                          className="flex items-center gap-1"
+                          ref={addMoreButtonRef}
+                        >
+                          <Plus className="h-4 w-4" />
+                          Add New Sample
+                        </Button>
                       </div>
 
-                      <div className="flex flex-col gap-6 mt-4">
-                        {/* Left Column: Automatic Sample Naming System */}
-                        <div
-                          className={`border rounded-md p-6 space-y-5 ${
-                            focusedSection === "naming" ? "border-blue-500 border-2 ring-2 ring-blue-300" : ""
-                          }`}
-                          ref={automaticNamingRef}
-                        >
-                          <div className="space-y-3">
-                            <h3 className="text-lg font-medium">Automatic Sample Naming System</h3>
-                            <div className="space-y-2">
-                              <Label htmlFor="sample-category">Sample Category</Label>
-                              <Select
-                                value={sampleCategory}
-                                onValueChange={(value) => {
-                                  setSampleCategory(value)
-                                  setCurrentSample((prev) => ({
-                                    ...prev,
-                                    category: value,
-                                    generatedName: "",
-                                  }))
-                                }}
-                              >
-                                <SelectTrigger
-                                  id="sample-category"
-                                  className={`w-full ${showSampleSections && !sampleCategory ? "ring-2 ring-blue-500 border-blue-500" : ""}`}
-                                  autoFocus={showSampleSections}
-                                >
-                                  <SelectValue placeholder="Select sample category" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="commercial">Commercial Grade</SelectItem>
-                                  <SelectItem value="td">TD/NPD</SelectItem>
-                                  <SelectItem value="benchmark">Benchmark</SelectItem>
-                                  <SelectItem value="inprocess">Inprocess</SelectItem>
-                                  <SelectItem value="chemicals">Chemicals/Substances</SelectItem>
-                                  <SelectItem value="cap">Cap Development</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              {showSampleSections && !sampleCategory && (
-                                <p className="text-sm text-red-500">Please select a sample category</p>
-                              )}
-                            </div>
-                          </div>
-
-                          {sampleCategory && renderSampleFields()}
-
-                          {sampleCategory && (
-                            <>
-                              <div className="space-y-3 pt-2 border-t">
-                                <Label htmlFor="generated-name">Generated Sample Name</Label>
-                                <Input
-                                  id="generated-name"
-                                  value={currentSample.generatedName}
-                                  disabled
-                                  className="bg-gray-100 font-medium"
-                                  autoComplete="off"
-                                />
-                              </div>
-
-                              <div className="flex justify-end pt-2">
-                                <Button
-                                  onClick={handleAddSample}
-                                  disabled={!currentSample.generatedName}
-                                  className="w-full md:w-auto"
-                                >
-                                  {editMode ? (
-                                    <>
-                                      <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        width="16"
-                                        height="16"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        className="mr-2"
-                                      >
-                                        <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                                        <path d="m15 5 4 4" />
-                                      </svg>
-                                      Update Sample
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Plus className="mr-2 h-4 w-4" />
-                                      Add Sample
-                                    </>
-                                  )}
-                                </Button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-
-                        {/* Right Column: Sample Summary */}
-                        <div
-                          className={`border rounded-md p-6 space-y-5 ${
-                            focusedSection === "summary" ? "border-blue-500 border-2 ring-2 ring-blue-300" : ""
-                          }`}
-                          ref={sampleSummaryRef}
-                        >
-                          <div className="flex justify-between items-center">
-                            <div className="space-y-1">
-                              <h3 className="text-lg font-medium">Sample Summary</h3>
-                              <p className="text-sm text-muted-foreground">
-                                {formData.samples.length === 0
-                                  ? "No samples added yet."
-                                  : "Review, edit, or copy your samples"}
-                              </p>
-                            </div>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={focusOnNamingSystem}
-                              className={`flex items-center gap-1 ${
-                                focusedSection === "addMore" ? "ring-2 ring-blue-500 border-blue-500" : ""
-                              }`}
-                              ref={addMoreButtonRef}
-                            >
-                              <Plus className="h-4 w-4" />
-                              Add more sample
-                            </Button>
-                          </div>
-
-                          {formData.samples.length > 0 ? (
-                            <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
-                              {formData.samples.map((sample, index) => (
-                                <div key={index} className="border rounded-md p-4 space-y-2 hover:bg-gray-50">
-                                  <div className="flex justify-between items-center">
-                                    <span className="font-medium">
-                                      <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-700 text-xs mr-2">
-                                        {index + 1}
-                                      </span>
-                                      {sample.generatedName}
+                      <div className="border rounded-md p-6 space-y-5" ref={sampleSummaryRef}>
+                        {formData.samples.length > 0 ? (
+                          <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1">
+                            {formData.samples.map((sample, index) => (
+                              <div key={index} className="border rounded-md p-4 space-y-2 hover:bg-gray-50">
+                                <div className="flex justify-between items-center">
+                                  <span className="font-medium">
+                                    <span className="inline-flex items-center justify-center h-5 w-5 rounded-full bg-blue-100 text-blue-700 text-xs mr-2">
+                                      {index + 1}
                                     </span>
-                                    <div className="flex space-x-1">
-                                      <Button variant="ghost" size="icon" onClick={() => handleCopySample(sample)}>
-                                        <svg
-                                          xmlns="http://www.w3.org/2000/svg"
-                                          width="16"
-                                          height="16"
-                                          viewBox="0 0 24 24"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          strokeWidth="2"
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          className="lucide lucide-copy-plus"
-                                        >
-                                          <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-                                          <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-                                          <path d="M15 11h6" />
-                                          <path d="M18 8v6" />
-                                        </svg>
-                                      </Button>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => handleEditSample(sample, index)}
-                                      >
-                                        <svg
-                                          xmlns="http://www.w3.org/2000/svg"
-                                          width="16"
-                                          height="16"
-                                          viewBox="0 0 24 24"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          strokeWidth="2"
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          className="lucide lucide-pencil"
-                                        >
-                                          <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-                                          <path d="m15 5 4 4" />
-                                        </svg>
-                                      </Button>
-                                      <Button variant="ghost" size="icon" onClick={() => handleRemoveSample(index)}>
-                                        <svg
-                                          xmlns="http://www.w3.org/2000/svg"
-                                          width="16"
-                                          height="16"
-                                          viewBox="0 0 24 24"
-                                          fill="none"
-                                          stroke="currentColor"
-                                          strokeWidth="2"
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          className="text-red-500"
-                                        >
-                                          <path d="M3 6h18" />
-                                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-                                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-                                          <line x1="10" x2="10" y1="11" y2="17" />
-                                          <line x1="14" x2="14" y1="11" y2="17" />
-                                        </svg>
-                                      </Button>
-                                    </div>
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    <span className="inline-block mr-3">
-                                      Category:{" "}
-                                      {sample.category === "commercial"
-                                        ? "Commercial Grade"
-                                        : sample.category === "td"
-                                          ? "TD/NPD"
-                                          : sample.category === "benchmark"
-                                            ? "Benchmark"
-                                            : sample.category === "inprocess"
-                                              ? "Inprocess/Chemicals"
-                                              : sample.category === "chemicals"
-                                                ? "Chemicals/Substances"
-                                                : "Cap Development"}
-                                    </span>
-                                    {sample.type && <span className="inline-block mr-3">Type: {sample.type}</span>}
-                                    {sample.form && <span className="inline-block">Form: {sample.form}</span>}
+                                    {sample.generatedName}
+                                  </span>
+                                  <div className="flex space-x-1">
+                                    <Button variant="ghost" size="icon" onClick={() => handleCopySample(sample)}>
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-copy-plus"><rect width="14" height="14" x="8" y="8" rx="2" ry="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /><path d="M15 11h6" /><path d="M18 8v6" /></svg>
+                                    </Button>
+                                    <Button variant="ghost" size="icon" onClick={() => handleEditSample(sample, index)}>
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-pencil"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" /><path d="m15 5 4 4" /></svg>
+                                    </Button>
+                                    <Button variant="ghost" size="icon" onClick={() => handleRemoveSample(index)}>
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-500"><path d="M3 6h18" /><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" /><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" /><line x1="10" x2="10" y1="11" y2="17" /><line x1="14" x2="14" y1="11" y2="17" /></svg>
+                                    </Button>
                                   </div>
                                 </div>
-                              ))}
-                            </div>
-                          ) : (
-                            <div className="flex flex-col items-center justify-center h-40 border border-dashed rounded-md">
-                              <p className="text-muted-foreground">No samples added yet</p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                Use the automatic naming system to add samples
-                              </p>
-                            </div>
-                          )}
-                        </div>
+                                <div className="text-xs text-muted-foreground">
+                                  <span className="inline-block mr-3">
+                                    Category:{" "}
+                                    {sample.category === "commercial"
+                                      ? "Commercial Grade"
+                                      : sample.category === "td"
+                                        ? "TD/NPD"
+                                        : sample.category === "benchmark"
+                                          ? "Benchmark"
+                                          : sample.category === "inprocess"
+                                            ? "Inprocess/Chemicals"
+                                            : sample.category === "chemicals"
+                                              ? "Chemicals/Substances"
+                                              : "Cap Development"}
+                                  </span>
+                                  {sample.type && <span className="inline-block mr-3">Type: {sample.type}</span>}
+                                  {sample.form && <span className="inline-block">Form: {sample.form}</span>}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="flex flex-col items-center justify-center h-40 border border-dashed rounded-md">
+                            <p className="text-muted-foreground">No samples added yet</p>
+                            <p className="text-xs text-muted-foreground mt-1">Use the Add New Sample button to add samples</p>
+                          </div>
+                        )}
                       </div>
                     </>
                   )}
@@ -1978,6 +1794,63 @@ export default function ASRPage() {
           </div>
         </div>
       </div>
+      <Dialog open={sampleDialogOpen} onOpenChange={setSampleDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{editMode ? "Edit Sample" : "Add New Sample"}</DialogTitle>
+            <DialogDescription>
+              {editMode
+                ? "Modify the sample details below"
+                : "Fill out the sample details to add a new sample to your request"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="sample-category">Sample Category</Label>
+              <Select
+                value={sampleCategory}
+                onValueChange={(value) => {
+                  setSampleCategory(value)
+                  setCurrentSample((prev) => ({
+                    ...prev,
+                    category: value,
+                  }))
+                }}
+              >
+                <SelectTrigger id="sample-category" className={highlightedField === "sample-category" ? "ring-2 ring-blue-500 border-blue-500" : ""}>
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="commercial">Commercial Grade</SelectItem>
+                  <SelectItem value="td">TD/NPD</SelectItem>
+                  <SelectItem value="benchmark">Benchmark</SelectItem>
+                  <SelectItem value="inprocess">Inprocess</SelectItem>
+                  <SelectItem value="chemicals">Chemicals/Substances</SelectItem>
+                  <SelectItem value="cap">Cap Development</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {sampleCategory && (
+              <div className="space-y-6">
+                {renderSampleFields()}
+                <div className="space-y-2">
+                  <Label htmlFor="generated-name">Generated Sample Name</Label>
+                  <Input id="generated-name" value={currentSample.generatedName || ""} disabled className="bg-gray-100 font-medium" autoComplete="off" />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSampleDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleAddSample} disabled={!currentSample.generatedName} className="bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600">
+              {editMode ? "Update Sample" : "Add Sample"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   )
 }

@@ -89,9 +89,15 @@ export default function CapabilityForm({
     fetchData();
   }, []);
 
-  // Initialize form with data if editing
+  // Initialize form with data if editing. We include `locations` in the
+  // dependency array so that the form updates once the locations list has
+  // been fetched from the server. This ensures the location select displays
+  // the correct default value when editing.
   useEffect(() => {
-    if (initialData) {
+    // Wait until locations are loaded before attempting to map the
+    // initial location value. This prevents the form from defaulting to
+    // "none" when the data arrives after the initial render.
+    if (initialData && locations.length > 0) {
       console.log('Initial data for capability:', initialData);
       console.log('Available locations:', locations);
 
@@ -177,7 +183,7 @@ export default function CapabilityForm({
         reqAsrRunNo: initialData.reqAsrRunNo || ""
       })
     }
-  }, [initialData])
+  }, [initialData, locations])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target

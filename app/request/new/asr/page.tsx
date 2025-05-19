@@ -354,13 +354,13 @@ export default function ASRPage() {
       if (isSelected) {
         return {
           ...prev,
-          selectedCapabilities: prev.selectedCapabilities.filter((id) => id !== capabilityId),
+          selectedCapabilities: [],
         }
-      } else {
-        return {
-          ...prev,
-          selectedCapabilities: [...prev.selectedCapabilities, capabilityId],
-        }
+      }
+
+      return {
+        ...prev,
+        selectedCapabilities: [capabilityId],
       }
     })
   }
@@ -565,7 +565,7 @@ export default function ASRPage() {
       if (formData.selectedCapabilities.length === 0) {
         toast({
           title: "Required Field Missing",
-          description: "Please select at least one capability to continue.",
+          description: "Please select a capability to continue.",
         })
         return
       }
@@ -1559,9 +1559,9 @@ export default function ASRPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <Label>Select Capabilities</Label>
+                    <Label>Select Capability</Label>
                     <p className="text-sm text-muted-foreground mb-4">
-                      Choose one or more capabilities that you believe are needed for your analysis. Our experts will
+                      Choose the capability that best matches your analysis needs. Our experts will
                       review your selection.
                     </p>
 
@@ -1598,7 +1598,7 @@ export default function ASRPage() {
                     </div>
 
                     {formData.selectedCapabilities.length === 0 && (
-                      <p className="text-sm text-red-500 mt-2">Please select at least one capability to continue</p>
+                      <p className="text-sm text-red-500 mt-2">Please select a capability to continue</p>
                     )}
                   </div>
                 </CardContent>

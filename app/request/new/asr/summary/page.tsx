@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { ChevronLeft, Check, AlertCircle, ArrowRight } from "lucide-react"
 import DashboardLayout from "@/components/dashboard-layout"
@@ -15,9 +15,8 @@ export default function ASRSummaryPage() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [additionalNotes, setAdditionalNotes] = useState("")
 
-  // Mock data for the request summary
-  const requestData = {
-    requestId: "ASR-2023-0124",
+  const [requestData, setRequestData] = useState({
+    requestId: "ASR-XXXX-0000",
     requestTitle: "PP Degradation Investigation",
     priority: "normal",
     useIONumber: "yes",
@@ -64,7 +63,37 @@ export default function ASRSummaryPage() {
       email: "john.doe@example.com",
       phone: "123-456-7890",
     },
-  }
+  })
+
+  useEffect(() => {
+    try {
+      const savedForm = localStorage.getItem("asrFormData")
+      if (savedForm) {
+        const parsed = JSON.parse(savedForm)
+        setRequestData((prev) => ({ ...prev, ...parsed }))
+      }
+      const savedSamples = localStorage.getItem("asrSamples")
+      if (savedSamples) {
+        const parsedSamples = JSON.parse(savedSamples)
+        setRequestData((prev) => ({ ...prev, samples: parsedSamples }))
+      }
+      const userData = localStorage.getItem("userData")
+      if (userData) {
+        const parsedUser = JSON.parse(userData)
+        setRequestData((prev) => ({
+          ...prev,
+          requester: {
+            name: parsedUser.name || parsedUser.username || prev.requester.name,
+            email: parsedUser.email || prev.requester.email,
+            department: parsedUser.department || prev.requester.department,
+            phone: parsedUser.phone || prev.requester.phone,
+          },
+        }))
+      }
+    } catch (e) {
+      console.error("Error loading ASR data:", e)
+    }
+  }, [])
 
   // Map capability IDs to names
   const capabilityNames = {
@@ -74,19 +103,58 @@ export default function ASRSummaryPage() {
     mesostructure: "Mesostructure & Imaging",
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     setIsSubmitting(true)
 
-    // Simulate API call
-    setTimeout(() => {
-      toast({
-        title: "Request submitted successfully",
-        description: `Your ASR request ${requestData.requestId} has been submitted for review.`,
+    const submissionData = {
+      asrName: requestData.requestTitle,
+      asrType: 'project',
+      asrDetail: requestData.testObjective,
+      requesterName: requestData.requester.name,
+      requesterEmail: requestData.requester.email,
+      asrRequireDate: requestData.desiredCompletionDate,
+      asrSampleList: requestData.samples,
+      capabilityId: requestData.selectedCapabilities[0] || null,
+      useIoNumber: requestData.useIONumber === 'yes',
+      ioCostCenter: requestData.useIONumber === 'yes' ? requestData.ioNumber : '',
+      requesterCostCenter: requestData.costCenter,
+    }
+
+    try {
+      const response = await fetch('/api/asrs/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(submissionData),
       })
 
-      // Redirect to confirmation page
-      window.location.href = "/request/new/asr/confirmation"
-    }, 2000)
+      const result = await response.json()
+      if (response.ok && result.success) {
+        toast({
+          title: 'Request submitted successfully',
+          description: `Your ASR request ${result.data.asrNumber} has been submitted for review.`,
+        })
+        localStorage.setItem('submittedAsrNumber', result.data.asrNumber)
+        localStorage.setItem('submittedAsrId', result.data.asrId)
+        setTimeout(() => {
+          window.location.href = '/request/new/asr/confirmation'
+        }, 1000)
+      } else {
+        toast({
+          title: 'Submission failed',
+          description: result.error || 'An error occurred while submitting your request.',
+          variant: 'destructive',
+        })
+      }
+    } catch (error) {
+      console.error('Error submitting ASR:', error)
+      toast({
+        title: 'Submission failed',
+        description: 'An unexpected error occurred. Please try again.',
+        variant: 'destructive',
+      })
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (

@@ -3,6 +3,7 @@
 import type React from "react"
 
 import { useState, useRef, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { ChevronLeft, ChevronRight, HelpCircle, Plus, Upload, Paperclip, Calendar } from "lucide-react"
 import Link from "next/link"
 import DashboardLayout from "@/components/dashboard-layout"
@@ -19,6 +20,7 @@ import { toast } from "@/components/ui/use-toast"
 import { AutocompleteInput } from "@/components/ui/autocomplete-input"
 
 export default function ASRPage() {
+  const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
   const [formData, setFormData] = useState({
     requestTitle: "",
@@ -583,6 +585,16 @@ export default function ASRPage() {
 
   const prevStep = () => {
     setCurrentStep((prev) => prev - 1)
+  }
+
+  const handleReviewAndSubmit = () => {
+    try {
+      localStorage.setItem("asrFormData", JSON.stringify(formData))
+      localStorage.setItem("asrSamples", JSON.stringify(formData.samples))
+    } catch (error) {
+      console.error("Error saving form data:", error)
+    }
+    router.push("/request/new/asr/summary")
   }
 
   // Function to start adding samples
@@ -1880,12 +1892,13 @@ export default function ASRPage() {
                   <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               ) : (
-                <Link href="/request/new/asr/summary">
-                  <Button className="ml-auto bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600">
-                    Review and Submit
-                    <ChevronRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
+                <Button
+                  className="ml-auto bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600"
+                  onClick={handleReviewAndSubmit}
+                >
+                  Review and Submit
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Button>
               )}
             </div>
           </div>

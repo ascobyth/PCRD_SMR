@@ -399,13 +399,13 @@ export default function NTRPage() {
           // Format for AutocompleteInput with shortText included
           setTechCatOptions(techCatData.map((item: any) => ({
             value: item._id,
-            label: `${item.appTech} - ${item.shortText}`,
+            label: `${item.appTech} (${item.shortText})`,
             shortText: item.shortText // Include shortText for easy access
           })))
 
           setFeatureAppOptions(featureAppData.map((item: any) => ({
             value: item._id,
-            label: `${item.appTech} - ${item.shortText}`,
+            label: `${item.appTech} (${item.shortText})`,
             shortText: item.shortText // Include shortText for easy access
           })))
 
@@ -1670,7 +1670,11 @@ export default function NTRPage() {
       generatedName: "",
     })
     setSampleCategory("")
+    setShowSampleSections(true)
     setSampleDialogOpen(true)
+    setTimeout(() => {
+      highlightNextEmptyField()
+    }, 100)
   }
 
   // Open the sample dialog for editing an existing sample

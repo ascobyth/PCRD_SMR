@@ -889,7 +889,7 @@ export default function DatabaseConfigPage() {
   const [allCapabilities, setAllCapabilities] = useState<any[]>([]);
 
   // Fetch users from MongoDB
-  const fetchUsers = async () => {
+  const fetchUsers = async (retryCount = 0) => {
     setIsLoading(true);
     try {
       // First fetch capabilities for the dropdown
@@ -984,19 +984,27 @@ export default function DatabaseConfigPage() {
         }
       } catch (userError) {
         console.error('Error fetching users:', userError);
-        toast({
-          title: "Error",
-          description: userError instanceof Error ? userError.message : "Failed to fetch users",
-          variant: "destructive"
-        });
+        if (retryCount < 2) {
+          setTimeout(() => fetchUsers(retryCount + 1), 1000);
+        } else {
+          toast({
+            title: "Error",
+            description: userError instanceof Error ? userError.message : "Failed to fetch users",
+            variant: "destructive"
+          });
+        }
       }
     } catch (error) {
       console.error('Error in fetchUsers:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch users",
-        variant: "destructive"
-      });
+      if (retryCount < 2) {
+        setTimeout(() => fetchUsers(retryCount + 1), 1000);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to fetch users",
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsLoading(false);
     }

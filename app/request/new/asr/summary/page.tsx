@@ -77,7 +77,7 @@ export default function ASRSummaryPage() {
         const parsedSamples = JSON.parse(savedSamples)
         setRequestData((prev) => ({ ...prev, samples: parsedSamples }))
       }
-      const userData = localStorage.getItem("userData")
+      const userData = localStorage.getItem("pcrd_user")
       if (userData) {
         const parsedUser = JSON.parse(userData)
         setRequestData((prev) => ({

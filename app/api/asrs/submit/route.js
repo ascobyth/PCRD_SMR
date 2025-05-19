@@ -9,6 +9,7 @@ export async function POST(request) {
     await connectToDatabase();
     const body = await request.json();
 
+
     // Predeclare ASR number to avoid reference errors in case generation fails
     let asrNumber = '';
 
@@ -50,6 +51,7 @@ export async function POST(request) {
     await capabilityDoc.save();
 
 
+
     const asrData = {
       asrNumber,
       asrName: body.asrName || body.requestTitle || 'ASR Project',
@@ -77,9 +79,11 @@ export async function POST(request) {
     return NextResponse.json({ success: true, data: { asrNumber, asrId: newAsr._id.toString() } }, { status: 201 });
   } catch (error) {
     console.error('Error submitting ASR:', error);
+
     return NextResponse.json(
       { success: false, error: error.message || 'Failed to submit ASR' },
       { status: 500 }
     );
+
   }
 }

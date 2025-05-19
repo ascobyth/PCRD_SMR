@@ -741,29 +741,31 @@ export default function TestMethodCatalogPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex space-x-2">
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => addMethodInstance(method.id)}
-                                    className="flex items-center gap-1"
-                                  >
-                                    Add Repeat
-                                    <Info className="h-4 w-4 ml-1 text-muted-foreground" />
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs bg-gray-900 text-white border-gray-800">
-                                  <p>
-                                    Use this to select the same method with different conditions or to repeat the test.
-                                    Each repeat can have its own requirements and sample selection.
-                                  </p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </div>
+                          {(method.selected || method.instances.length > 0) && (
+                            <div className="flex space-x-2">
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => addMethodInstance(method.id)}
+                                      className="flex items-center gap-1"
+                                    >
+                                      Add Repeat
+                                      <Info className="h-4 w-4 ml-1 text-muted-foreground" />
+                                    </Button>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs bg-gray-900 text-white border-gray-800">
+                                    <p>
+                                      Use this to select the same method with different conditions or to repeat the test.
+                                      Each repeat can have its own requirements and sample selection.
+                                    </p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                          )}
                         </div>
 
                         {/* Show the main method if selected */}

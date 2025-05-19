@@ -96,6 +96,7 @@ const mockRequestData = {
 export default function RequestConfirmationPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [showPrintDialog, setShowPrintDialog] = useState(false)
+  const [showRequestTagDialog, setShowRequestTagDialog] = useState(false)
   const [selectedRequest, setSelectedRequest] = useState<any>(null)
 
   // State for the real request data
@@ -173,6 +174,11 @@ export default function RequestConfirmationPage() {
   const handlePrintTags = (request: any) => {
     setSelectedRequest(request)
     setShowPrintDialog(true)
+  }
+
+  const handlePrintRequestTag = (request: any) => {
+    setSelectedRequest(request)
+    setShowRequestTagDialog(true)
   }
 
   if (isLoading) {
@@ -259,13 +265,18 @@ export default function RequestConfirmationPage() {
                       key={request.requestId}
                       request={request}
                       onPrintTags={() => handlePrintTags(request)}
+                      onPrintRequestTag={() => handlePrintRequestTag(request)}
                     />
                   ))}
                 </TabsContent>
 
                 {requestData?.splitRequests.map((request) => (
                   <TabsContent key={request.requestId} value={request.requestId}>
-                    <RequestCard request={request} onPrintTags={() => handlePrintTags(request)} />
+                    <RequestCard
+                      request={request}
+                      onPrintTags={() => handlePrintTags(request)}
+                      onPrintRequestTag={() => handlePrintRequestTag(request)}
+                    />
                   </TabsContent>
                 ))}
               </Tabs>
@@ -429,14 +440,48 @@ export default function RequestConfirmationPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Request Tag Dialog */}
+      <Dialog open={showRequestTagDialog} onOpenChange={setShowRequestTagDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Print Request Tag</DialogTitle>
+            <DialogDescription>A summary tag for this capability.</DialogDescription>
+          </DialogHeader>
+          {selectedRequest && (
+            <div className="py-4 text-sm">
+              <p className="font-medium mb-2">{selectedRequest.requestId}</p>
+              <p className="text-muted-foreground mb-4">{selectedRequest.capability}</p>
+              <p>QR code will be generated here.</p>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRequestTagDialog(false)}>
+              Close
+            </Button>
+            <Button className="gap-2">
+              <Printer className="h-4 w-4" />
+              Print Tag
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
 // Request Card Component
-function RequestCard({ request, onPrintTags }: { request: any; onPrintTags: () => void }) {
+function RequestCard({
+  request,
+  onPrintTags,
+  onPrintRequestTag,
+}: {
+  request: any
+  onPrintTags: () => void
+  onPrintRequestTag: () => void
+}) {
   return (
-    <div className="border rounded-lg p-4 bg-white">
+    <div className="border rounded-lg p-4 bg-gray-50 shadow-sm">
       <div className="flex justify-between items-start">
         <div>
           <div className="flex items-center gap-2">
@@ -446,6 +491,10 @@ function RequestCard({ request, onPrintTags }: { request: any; onPrintTags: () =
           <p className="text-sm text-muted-foreground mt-1">Estimated completion: {request.estimatedCompletion}</p>
         </div>
         <div className="flex space-x-2">
+          <Button variant="outline" size="sm" className="gap-1" onClick={onPrintRequestTag}>
+            <Printer className="h-4 w-4" />
+            Print Request Tag
+          </Button>
           <Button variant="outline" size="sm" className="gap-1" onClick={onPrintTags}>
             <Printer className="h-4 w-4" />
             Print Sample Tags

@@ -10,38 +10,19 @@ export async function POST(request) {
     const body = await request.json();
 
     let capabilityId = body.capabilityId || null;
-    let capabilityDoc = null;
-
-    if (capabilityId) {
-      if (typeof capabilityId === 'string' && !mongoose.Types.ObjectId.isValid(capabilityId)) {
-        capabilityDoc = await Capability.findOne({
-          $or: [
-            { shortName: capabilityId },
-            { capabilityName: capabilityId },
-          ],
-        });
-      } else {
-        capabilityDoc = await Capability.findById(capabilityId);
-      }
+    if (
+      capabilityId &&
+      typeof capabilityId === 'string' &&
+      !mongoose.Types.ObjectId.isValid(capabilityId)
+    ) {
+      const found = await Capability.findOne({
+        $or: [
+          { shortName: capabilityId },
+          { capabilityName: capabilityId },
+        ],
+      }).select('_id');
+      capabilityId = found ? found._id : null;
     }
-
-    if (!capabilityDoc) {
-      return NextResponse.json({ success: false, error: 'Invalid capability' }, { status: 400 });
-    }
-
-    capabilityId = capabilityDoc._id;
-
-    const now = new Date();
-    const mm = String(now.getMonth() + 1).padStart(2, '0');
-    const yy = String(now.getFullYear()).slice(-2);
-    const runNo = parseInt(capabilityDoc.reqAsrRunNo, 10) || 0;
-    const seq = runNo + 1;
-    const asrNumber = `${capabilityDoc.shortName}-A-${mm}${yy}-${seq.toString().padStart(5, '0')}`;
-
-    // update run number
-    capabilityDoc.reqAsrRunNo = seq.toString();
-    await capabilityDoc.save();
-
 
     const asrData = {
       asrNumber,

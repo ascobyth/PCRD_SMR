@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import connectToDatabase, { mongoose } from '@/lib/db';
 
 const AsrList = mongoose.models.AsrList || require('@/models/AsrList');
+const Capability = mongoose.models.Capability || require('@/models/Capability');
 
 export async function POST(request) {
   try {
@@ -19,6 +20,22 @@ export async function POST(request) {
       asrNumber = `ASR-${currentYear}-0001`;
     }
 
+    // Resolve capabilityId if it's provided as a short name or capability name
+    let capabilityId = body.capabilityId || null;
+    if (
+      capabilityId &&
+      typeof capabilityId === 'string' &&
+      !mongoose.Types.ObjectId.isValid(capabilityId)
+    ) {
+      const found = await Capability.findOne({
+        $or: [
+          { shortName: capabilityId },
+          { capabilityName: capabilityId },
+        ],
+      }).select('_id');
+      capabilityId = found ? found._id : null;
+    }
+
     const asrData = {
       asrNumber,
       asrName: body.asrName || body.requestTitle || 'ASR Project',
@@ -29,7 +46,7 @@ export async function POST(request) {
       requesterEmail: body.requesterEmail,
       asrRequireDate: body.asrRequireDate ? new Date(body.asrRequireDate) : null,
       asrMethodology: body.asrMethodology || '',
-      capabilityId: body.capabilityId || null,
+      capabilityId,
       asrSampleList: JSON.stringify(body.asrSampleList || []),
       asrOwnerName: body.asrOwnerName || '',
       asrOwnerEmail: body.asrOwnerEmail || '',

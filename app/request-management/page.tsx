@@ -72,6 +72,7 @@ import { RequestSummaryDialog } from "@/components/request-summary-dialog"
 import { RequestStatusBadge } from "@/components/request-status-badge"
 import { SampleReceiveDialog } from "@/components/sample-receive-dialog"
 import { RequestViewDetailsDialog } from "@/components/request-view-details-dialog"
+import { SampleStatusBadge } from "@/components/sample-status-badge"
 import { toast } from "sonner"
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 
@@ -90,7 +91,7 @@ const RequestTypeBadge = ({ type }: { type: string }) => {
 }
 
 export default function RequestManagementPage() {
-  const [activeTab, setActiveTab] = useState("all")
+  const [activeTab, setActiveTab] = useState("ntr")
   const [tableView, setTableView] = useState("request")
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
@@ -893,13 +894,10 @@ export default function RequestManagementPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <Tabs defaultValue="list" className="w-full">
+                  <Tabs value={tableView} onValueChange={(v) => { setTableView(v); setCurrentPage(1); }} className="w-full">
                     <div className="flex justify-between items-center px-6 py-2 border-b">
                       <div className="flex gap-2">
-                        <TabsList className="grid w-[100px] grid-cols-1">
-                          <TabsTrigger value="list">List</TabsTrigger>
-                        </TabsList>
-                        <TabsList className="grid w-[220px] grid-cols-2 ml-4" value={tableView} onValueChange={(v) => { setTableView(v); setCurrentPage(1); }}>
+                        <TabsList className="grid w-[220px] grid-cols-2">
                           <TabsTrigger value="request">Request View</TabsTrigger>
                           <TabsTrigger value="testing">Testing List</TabsTrigger>
                         </TabsList>
@@ -926,7 +924,7 @@ export default function RequestManagementPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <TabsContent value="list" className="m-0">
+                    <div className="m-0">
                       {/* Batch action buttons - only show when filtering by pending, in-progress, or completed */}
                       {showCheckboxes && selectedRequests.length > 0 && (
                         <div className="flex items-center justify-between p-4 bg-muted/10 border-b">
@@ -1030,38 +1028,37 @@ export default function RequestManagementPage() {
                           </div>
                         </div>
                       ) : (
-                        <Table>
-                          <TableHeader className="bg-muted/50">
-                            <TableRow>
-                              {showCheckboxes && (
-                                <TableHead className="w-[40px]">
-                                  <div className="flex items-center justify-center">
-                                    <Checkbox
-                                      checked={
-                                        selectedRequests.length === displayRequests.length && displayRequests.length > 0
-                                      }
-                                      onCheckedChange={toggleSelectAll}
-                                      aria-label="Select all requests"
-                                    />
-                                  </div>
-                                </TableHead>
-                              )}
-                              <TableHead className="w-[100px]">ID</TableHead>
-                              <TableHead>Title</TableHead>
-                              <TableHead>Type</TableHead>
-                              <TableHead>Capability</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead>Priority</TableHead>
-                              <TableHead>Due Date</TableHead>
-                              <TableHead>Progress</TableHead>
-                              {tableView === "request" && (
+                        tableView === "request" ? (
+                          <Table>
+                            <TableHeader className="bg-muted/50">
+                              <TableRow>
+                                {showCheckboxes && (
+                                  <TableHead className="w-[40px]">
+                                    <div className="flex items-center justify-center">
+                                      <Checkbox
+                                        checked={
+                                          selectedRequests.length === displayRequests.length && displayRequests.length > 0
+                                        }
+                                        onCheckedChange={toggleSelectAll}
+                                        aria-label="Select all requests"
+                                      />
+                                    </div>
+                                  </TableHead>
+                                )}
+                                <TableHead className="w-[100px]">ID</TableHead>
+                                <TableHead>Title</TableHead>
+                                <TableHead>Type</TableHead>
+                                <TableHead>Capability</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Priority</TableHead>
+                                <TableHead>Due Date</TableHead>
+                                <TableHead>Progress</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
-                              )}
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {displayRequests.length > 0 ? (
-                              displayRequests.map((request) => (
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {displayRequests.length > 0 ? (
+                                displayRequests.map((request) => (
                                 <TableRow
                                   key={request.id}
                                   className="hover:bg-muted/30 cursor-pointer"
@@ -1226,7 +1223,7 @@ export default function RequestManagementPage() {
                               ))
                             ) : (
                               <TableRow>
-                                <TableCell colSpan={showCheckboxes ? (tableView === "request" ? 10 : 9) : (tableView === "request" ? 9 : 8)} className="text-center py-10">
+                                <TableCell colSpan={showCheckboxes ? 10 : 9} className="text-center py-10">
                                   <div className="flex flex-col items-center justify-center gap-2">
                                     <FileText className="h-8 w-8 text-muted-foreground" />
                                     <p className="text-lg font-medium">No requests found</p>
@@ -1241,7 +1238,48 @@ export default function RequestManagementPage() {
                             )}
                           </TableBody>
                         </Table>
-                      )}
+                        ) : (
+                          <Table>
+                            <TableHeader className="bg-muted/50">
+                              <TableRow>
+                                <TableHead className="w-[100px]">Sample ID</TableHead>
+                                <TableHead>Sample Name</TableHead>
+                                <TableHead>Request ID</TableHead>
+                                <TableHead>Capability</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Due Date</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {displayRequests.length > 0 ? (
+                                displayRequests.map((sample) => (
+                                  <TableRow key={sample.id}>
+                                    <TableCell className="font-medium">{sample.id}</TableCell>
+                                    <TableCell>{sample.title}</TableCell>
+                                    <TableCell>{sample.type}</TableCell>
+                                    <TableCell>{sample.capability}</TableCell>
+                                    <TableCell>
+                                      <SampleStatusBadge status={sample.status} />
+                                    </TableCell>
+                                    <TableCell>{sample.dueDate || "-"}</TableCell>
+                                  </TableRow>
+                                ))
+                              ) : (
+                                <TableRow>
+                                  <TableCell colSpan={6} className="text-center py-10">
+                                    <div className="flex flex-col items-center justify-center gap-2">
+                                      <FileText className="h-8 w-8 text-muted-foreground" />
+                                      <p className="text-lg font-medium">No tests found</p>
+                                      <p className="text-muted-foreground">
+                                        {searchQuery ? `No tests match "${searchQuery}"` : "Try changing your filters to see more tests"}
+                                      </p>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            </TableBody>
+                          </Table>
+                        )}
 
                       {/* Pagination */}
                       {displayRequests.length > 0 && totalPages > 1 && (
@@ -1340,7 +1378,7 @@ export default function RequestManagementPage() {
                           </Pagination>
                         </div>
                       )}
-                    </TabsContent>
+                    </div>
 
                   </Tabs>
                 </CardContent>

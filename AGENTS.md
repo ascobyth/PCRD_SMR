@@ -390,3 +390,8 @@ This implementation allows users to submit equipment reservation requests, which
 - User Concerned: request-management
 - Issue: Calendar view was not required and Request View showed no data by default
 - Progress: Removed calendar tab and content, set `Tabs` to list only, ensured default Request View loads data.
+
+## Update - Remove List Tab & Testing Table
+- User Concerned: request-management
+- Issue: Simplify Request Management UI and show data from RequestList and TestingSampleList separately
+- Progress: Removed unused "List" tab, defaulted Request View to RequestList data, and added a dedicated Testing List table.

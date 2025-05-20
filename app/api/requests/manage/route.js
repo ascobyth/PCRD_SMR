@@ -4,6 +4,7 @@ import RequestList from "@/models/RequestList";
 import AsrList from "@/models/AsrList";
 import ErList from "@/models/ErList";
 import Capability from "@/models/Capability";
+import TestingSampleList from "@/models/TestingSampleList";
 
 // Define capability categories directly in the file to avoid TypeScript import issues
 const CAPABILITY_CATEGORIES = [
@@ -462,16 +463,16 @@ export async function PUT(request) {
       // If we're updating to in-progress, also update any related samples
       if (status === "in-progress") {
         try {
-          // Update all pending receive samples to received for these requests
-          await mongoose.connection.db.collection('testing_samples').updateMany(
-            { 
-              request_number: { $in: ntrIds },
-              status: "Pending Receive"
+          await TestingSampleList.updateMany(
+            {
+              requestNumber: { $in: ntrIds },
+              sampleStatus: { $ne: "in-progress" }
             },
             {
               $set: {
-                status: "Received",
-                received_date: new Date(),
+                sampleStatus: "in-progress",
+                receiveDate: new Date(),
+                receiveBy: "System",
                 updatedAt: new Date()
               }
             }

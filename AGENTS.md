@@ -355,3 +355,8 @@ This implementation allows users to submit equipment reservation requests, which
 - User Concerned: request-management
 - Issue: Duplicate keys in pagination causing React warning
 - Progress: Rewrote page number generation to ensure unique keys.
+
+## Update - Request vs Sample View
+- User Concerned: request-management
+- Issue: Added selectable Request and Testing Sample views; removed Calendar view
+- Progress: Implemented new `viewMode` state with Testing Sample table and created `/api/testing-samples` endpoint.

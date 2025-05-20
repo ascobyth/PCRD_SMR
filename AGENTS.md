@@ -345,3 +345,8 @@ This implementation allows users to submit equipment reservation requests, which
 - User Concerned: request-management
 - Issue: View Details dialog failed to load ASR and ER request data
 - Progress: Corrected ASR details fetch path and implemented new `er-details` API route
+
+## Update - Progress Import Fix
+- User Concerned: request-management
+- Issue: RequestViewDetailsDialog crashed due to missing Progress import
+- Progress: Imported Progress component from ui/progress to resolve ReferenceError.

@@ -1448,5 +1448,5 @@ export default function RequestManagementPage() {
         </Dialog>
       )}
     </div>
-  )
+  ));
 }

@@ -63,7 +63,10 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
+import { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "@/components/ui/tooltip"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Textarea } from "@/components/ui/textarea"
 import { RequestSummaryDialog } from "@/components/request-summary-dialog"
 import { RequestStatusBadge } from "@/components/request-status-badge"
 import { SampleReceiveDialog } from "@/components/sample-receive-dialog"
@@ -98,6 +101,9 @@ export default function RequestManagementPage() {
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false)
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false)
   const [viewDetailsDialogOpen, setViewDetailsDialogOpen] = useState(false)
+  const [editDetailsDialogOpen, setEditDetailsDialogOpen] = useState(false)
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
+  const [rejectReason, setRejectReason] = useState("")
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1)
@@ -361,10 +367,45 @@ export default function RequestManagementPage() {
     setViewDetailsDialogOpen(true)
   }
 
+  // Handle opening request edit dialog
+  const handleOpenEditRequest = (e: React.MouseEvent, request: any) => {
+    e.stopPropagation()
+    setSelectedRequest(request)
+    setEditDetailsDialogOpen(true)
+  }
+
+  const handleOpenReject = (e: React.MouseEvent, request: any) => {
+    e.stopPropagation()
+    setSelectedRequest(request)
+    setRejectReason("")
+    setRejectDialogOpen(true)
+  }
+
+  const handleConfirmReject = async () => {
+    if (!selectedRequest) return
+    try {
+      const response = await fetch("/api/requests/manage", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: selectedRequest.id, status: "rejected", note: rejectReason }),
+      })
+      const data = await response.json()
+      if (data.success) {
+        handleStatusChange(selectedRequest.id, "rejected", rejectReason)
+        setRejectDialogOpen(false)
+        toast.success("Request rejected")
+      } else {
+        toast.error(data.error || "Failed to reject request")
+      }
+    } catch (err) {
+      toast.error("Failed to reject request")
+    }
+  }
+
   // Handle status change from the summary dialog
-  const handleStatusChange = (requestId: string, newStatus: string) => {
+  const handleStatusChange = (requestId: string, newStatus: string, reason?: string) => {
     // Update in local state
-    setRequests(requests.map((req) => (req.id === requestId ? { ...req, status: newStatus } : req)))
+    setRequests(requests.map((req) => (req.id === requestId ? { ...req, status: newStatus, ...(reason ? { rejectReason: reason } : {}) } : req)))
 
     // Update counts based on status change
     const request = requests.find(req => req.id === requestId)
@@ -951,7 +992,19 @@ export default function RequestManagementPage() {
                                   )}
                                   <TableCell className="font-medium">{request.id}</TableCell>
                                   <TableCell>
-                                    <div className="font-medium">{request.title}</div>
+                                    <div className="flex items-center gap-1">
+                                      <span className="font-medium">{request.title}</span>
+                                      {request.rejectReason && (
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <AlertCircle className="h-4 w-4 text-red-600" />
+                                            </TooltipTrigger>
+                                            <TooltipContent>{request.rejectReason}</TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      )}
+                                    </div>
                                     <div className="text-xs text-muted-foreground">
                                       {request.requester} • {request.department || "N/A"}
                                     </div>
@@ -1043,16 +1096,14 @@ export default function RequestManagementPage() {
                                             <span className="sr-only">More actions</span>
                                           </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end">
+                                        <DropdownMenuContent align="end" className="bg-background">
                                           <DropdownMenuItem onClick={(e) => handleOpenRequestDetails(e, request)}>
                                             <FileText className="h-4 w-4 mr-2" />
                                             View Details
                                           </DropdownMenuItem>
-                                          <DropdownMenuItem asChild>
-                                            <Link href={`/request/${request.id}`}>
-                                              <FileText className="h-4 w-4 mr-2" />
-                                              Edit Request
-                                            </Link>
+                                          <DropdownMenuItem onClick={(e) => handleOpenEditRequest(e, request)}>
+                                            <FileText className="h-4 w-4 mr-2" />
+                                            Edit Request
                                           </DropdownMenuItem>
                                           <DropdownMenuSeparator />
                                           <DropdownMenuItem asChild>
@@ -1064,10 +1115,7 @@ export default function RequestManagementPage() {
                                           <DropdownMenuSeparator />
                                           <DropdownMenuItem
                                             className="text-red-600"
-                                            onClick={(e) => {
-                                              e.stopPropagation()
-                                              handleStatusChange(request.id, "rejected")
-                                            }}
+                                            onClick={(e) => handleOpenReject(e, request)}
                                           >
                                             <XCircle className="h-4 w-4 mr-2" />
                                             Reject Request
@@ -1238,6 +1286,37 @@ export default function RequestManagementPage() {
           open={viewDetailsDialogOpen}
           onOpenChange={setViewDetailsDialogOpen}
         />
+      )}
+
+      {selectedRequest && (
+        <RequestViewDetailsDialog
+          requestId={selectedRequest.id}
+          open={editDetailsDialogOpen}
+          onOpenChange={setEditDetailsDialogOpen}
+          editable
+        />
+      )}
+
+      {/* Reject reason dialog */}
+      {selectedRequest && (
+        <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Reject Request</DialogTitle>
+              <DialogDescription>Provide reason for rejection.</DialogDescription>
+            </DialogHeader>
+            <Textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Reason"
+              className="min-h-[100px]"
+            />
+            <DialogFooter className="gap-2">
+              <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleConfirmReject}>Reject</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   )

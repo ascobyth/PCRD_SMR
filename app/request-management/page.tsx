@@ -41,7 +41,8 @@ import CAPABILITY_CATEGORIES, {
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { AutocompleteInput } from "@/components/ui/autocomplete-input"
+import { Tabs, TabsContent } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import {
   DropdownMenu,
@@ -117,6 +118,10 @@ export default function RequestManagementPage() {
   // Capabilities from API
   const [capabilities, setCapabilities] = useState<any[]>([])
   const [capabilityCounts, setCapabilityCounts] = useState<Record<string, number>>({})
+
+  // Equipment filter
+  const [equipmentFilter, setEquipmentFilter] = useState("all")
+  const [equipmentOptions, setEquipmentOptions] = useState<any[]>([])
 
   // Status counts
   const [pendingCount, setPendingCount] = useState(0)
@@ -217,7 +222,7 @@ export default function RequestManagementPage() {
     setLoading(true)
     try {
       const response = await fetch(
-        `/api/testing-samples?status=${encodeURIComponent(statusFilter)}&capability=${capabilityFilter}&search=${encodeURIComponent(searchQuery)}&page=${currentPage}&limit=${pageSize}`
+        `/api/testing-samples?status=${encodeURIComponent(statusFilter)}&capability=${capabilityFilter}&equipment=${equipmentFilter}&search=${encodeURIComponent(searchQuery)}&page=${currentPage}&limit=${pageSize}`
       )
       const data = await response.json()
 
@@ -234,6 +239,20 @@ export default function RequestManagementPage() {
       toast.error("Error fetching samples")
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchEquipment = async () => {
+    try {
+      const response = await fetch('/api/equipment')
+      const data = await response.json()
+      if (data.success) {
+        setEquipmentOptions(
+          data.data.map((eq: any) => ({ id: eq.equipmentName, name: eq.equipmentName }))
+        )
+      }
+    } catch (error) {
+      console.error('Error fetching equipment:', error)
     }
   }
 
@@ -278,7 +297,7 @@ export default function RequestManagementPage() {
     } else {
       fetchSamples()
     }
-  }, [statusFilter, priorityFilter, capabilityFilter, activeTab, currentPage, pageSize, viewMode])
+  }, [statusFilter, priorityFilter, capabilityFilter, equipmentFilter, activeTab, currentPage, pageSize, viewMode])
 
   // Debounce search query
   useEffect(() => {
@@ -292,6 +311,12 @@ export default function RequestManagementPage() {
     }, 500)
     return () => clearTimeout(timeoutId)
   }, [searchQuery, viewMode])
+
+  useEffect(() => {
+    if (viewMode === "samples") {
+      fetchEquipment()
+    }
+  }, [viewMode])
 
   // Filter requests based on active tab (request type)
   const displayRequests = viewMode === "requests" ? requests : samples
@@ -753,6 +778,37 @@ export default function RequestManagementPage() {
                 </CardContent>
               </Card>
 
+              {viewMode === "samples" && (
+                <Card>
+                  <CardHeader className="py-3">
+                    <CardTitle className="text-lg font-medium">Equipment Filter</CardTitle>
+                  </CardHeader>
+                  <CardContent className="p-3 space-y-2">
+                    <AutocompleteInput
+                      suggestions={equipmentOptions}
+                      value={equipmentFilter === "all" ? "" : equipmentFilter}
+                      onChange={(val) => {
+                        setEquipmentFilter(val || "all")
+                        setCurrentPage(1)
+                      }}
+                      placeholder="Search equipment..."
+                    />
+                    {equipmentFilter !== "all" && (
+                      <Button
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => {
+                          setEquipmentFilter("all")
+                          setCurrentPage(1)
+                        }}
+                      >
+                        Clear Filter
+                      </Button>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
               <Card>
                 <CardHeader className="py-3">
                   <CardTitle className="text-lg font-medium">Quick Actions</CardTitle>
@@ -806,12 +862,26 @@ export default function RequestManagementPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <Tabs defaultValue="requests" value={viewMode} onValueChange={setViewMode} className="w-full">
+                  <Tabs defaultValue="requests" value={viewMode} onValueChange={setViewMode as any} className="w-full">
                     <div className="flex justify-between items-center px-6 py-2 border-b">
-                      <TabsList className="grid w-[220px] grid-cols-2">
-                        <TabsTrigger value="requests">Request View</TabsTrigger>
-                        <TabsTrigger value="samples">Testing Sample View</TabsTrigger>
-                      </TabsList>
+                      <Select
+                        value={viewMode}
+                        onValueChange={(val) => {
+                          setViewMode(val as "requests" | "samples")
+                          setCurrentPage(1)
+                        }}
+                      >
+                        <SelectTrigger className="w-[220px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectGroup>
+                            <SelectLabel>View Mode</SelectLabel>
+                            <SelectItem value="requests">Request View</SelectItem>
+                            <SelectItem value="samples">Testing Sample View</SelectItem>
+                          </SelectGroup>
+                        </SelectContent>
+                      </Select>
                       <Select
                         defaultValue="all"
                         value={activeTab}
@@ -1243,9 +1313,9 @@ export default function RequestManagementPage() {
                         <Table>
                           <TableHeader className="bg-muted/50">
                             <TableRow>
-                              <TableHead className="w-[120px]">Sample ID</TableHead>
-                              <TableHead>Sample Name</TableHead>
                               <TableHead>Request #</TableHead>
+                              <TableHead>Sample Name</TableHead>
+                              <TableHead>Equipment</TableHead>
                               <TableHead>Capability</TableHead>
                               <TableHead>Method</TableHead>
                               <TableHead>Status</TableHead>
@@ -1256,9 +1326,9 @@ export default function RequestManagementPage() {
                             {displayRequests.length > 0 ? (
                               displayRequests.map((sample) => (
                                 <TableRow key={sample.id}>
-                                  <TableCell className="font-medium">{sample.sampleId}</TableCell>
-                                  <TableCell>{sample.sampleName}</TableCell>
                                   <TableCell>{sample.requestNumber}</TableCell>
+                                  <TableCell>{sample.sampleName}</TableCell>
+                                  <TableCell>{sample.equipmentName || "-"}</TableCell>
                                   <TableCell>{sample.capability || "-"}</TableCell>
                                   <TableCell>{sample.method || "-"}</TableCell>
                                   <TableCell>

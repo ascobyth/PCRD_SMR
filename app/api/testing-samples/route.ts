@@ -9,6 +9,7 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const status = searchParams.get("status");
     const capability = searchParams.get("capability");
+    const equipment = searchParams.get("equipment");
     const page = parseInt(searchParams.get("page") || "1");
     const limit = parseInt(searchParams.get("limit") || "20");
     const search = searchParams.get("search") || "";
@@ -21,6 +22,10 @@ export async function GET(request: Request) {
 
     if (capability && capability !== "all") {
       filter.capabilityName = capability;
+    }
+
+    if (equipment && equipment !== "all") {
+      filter.equipmentName = equipment;
     }
 
     if (search) {
@@ -46,6 +51,7 @@ export async function GET(request: Request) {
       sampleId: sample.sampleId,
       sampleName: sample.sampleName,
       requestNumber: sample.requestNumber,
+      equipmentName: sample.equipmentName,
       status: sample.sampleStatus,
       capability: sample.capabilityName,
       method: sample.methodCode,

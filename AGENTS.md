@@ -340,3 +340,8 @@ This implementation allows users to submit equipment reservation requests, which
 - User Concerned: request-management
 - Issue: Merge conflict markers causing compilation failure in page.tsx
 - Progress: Resolved conflict markers and cleaned up code.
+
+## Update - View Details Fix
+- User Concerned: request-management
+- Issue: View Details dialog failed to load ASR and ER request data
+- Progress: Corrected ASR details fetch path and implemented new `er-details` API route

@@ -68,6 +68,7 @@ import { RequestSummaryDialog } from "@/components/request-summary-dialog"
 import { RequestStatusBadge } from "@/components/request-status-badge"
 import { SampleReceiveDialog } from "@/components/sample-receive-dialog"
 import { RequestViewDetailsDialog } from "@/components/request-view-details-dialog"
+import { SampleStatusBadge } from "@/components/sample-status-badge"
 import { toast } from "sonner"
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
 
@@ -87,7 +88,7 @@ const RequestTypeBadge = ({ type }: { type: string }) => {
 
 export default function RequestManagementPage() {
   const [activeTab, setActiveTab] = useState("all")
-  const [activeView, setActiveView] = useState("list")
+  const [viewMode, setViewMode] = useState<"requests" | "samples">("requests")
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
   const [capabilityFilter, setCapabilityFilter] = useState("all")
@@ -111,6 +112,7 @@ export default function RequestManagementPage() {
 
   // State for storing requests from API
   const [requests, setRequests] = useState<any[]>([])
+  const [samples, setSamples] = useState<any[]>([])
 
   // Capabilities from API
   const [capabilities, setCapabilities] = useState<any[]>([])
@@ -211,6 +213,30 @@ export default function RequestManagementPage() {
     }
   }
 
+  const fetchSamples = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch(
+        `/api/testing-samples?status=${encodeURIComponent(statusFilter)}&capability=${capabilityFilter}&search=${encodeURIComponent(searchQuery)}&page=${currentPage}&limit=${pageSize}`
+      )
+      const data = await response.json()
+
+      if (data.success) {
+        setSamples(data.data || [])
+        setTotalPages(data.pagination.pages || 1)
+        setTotalCount(data.pagination.total || 0)
+      } else {
+        console.error("Failed to fetch samples:", data.error)
+        toast.error("Failed to fetch samples")
+      }
+    } catch (error) {
+      console.error("Error fetching samples:", error)
+      toast.error("Error fetching samples")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Fetch status counts
   const fetchStatusCounts = async () => {
     try {
@@ -246,23 +272,32 @@ export default function RequestManagementPage() {
 
   // Fetch data when filters change
   useEffect(() => {
-    fetchRequests()
-    fetchStatusCounts()
-  }, [statusFilter, priorityFilter, capabilityFilter, activeTab, currentPage, pageSize])
+    if (viewMode === "requests") {
+      fetchRequests()
+      fetchStatusCounts()
+    } else {
+      fetchSamples()
+    }
+  }, [statusFilter, priorityFilter, capabilityFilter, activeTab, currentPage, pageSize, viewMode])
 
   // Debounce search query
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      fetchRequests()
+      if (viewMode === "requests") {
+        fetchRequests()
+        fetchStatusCounts()
+      } else {
+        fetchSamples()
+      }
     }, 500)
     return () => clearTimeout(timeoutId)
-  }, [searchQuery])
+  }, [searchQuery, viewMode])
 
   // Filter requests based on active tab (request type)
-  const displayRequests = requests
+  const displayRequests = viewMode === "requests" ? requests : samples
 
   // Check if we should show checkboxes (when filtering by pending, in-progress, or completed)
-  const showCheckboxes = statusFilter === "pending receive sample" || statusFilter === "in-progress" || statusFilter === "completed"
+  const showCheckboxes = viewMode === "requests" && (statusFilter === "pending receive sample" || statusFilter === "in-progress" || statusFilter === "completed")
 
   // Handle checkbox selection
   const toggleSelectRequest = (id: string) => {
@@ -771,11 +806,11 @@ export default function RequestManagementPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <Tabs defaultValue="list" value={activeView} onValueChange={setActiveView} className="w-full">
+                  <Tabs defaultValue="requests" value={viewMode} onValueChange={setViewMode} className="w-full">
                     <div className="flex justify-between items-center px-6 py-2 border-b">
-                      <TabsList className="grid w-[200px] grid-cols-2">
-                        <TabsTrigger value="list">List</TabsTrigger>
-                        <TabsTrigger value="calendar">Calendar</TabsTrigger>
+                      <TabsList className="grid w-[220px] grid-cols-2">
+                        <TabsTrigger value="requests">Request View</TabsTrigger>
+                        <TabsTrigger value="samples">Testing Sample View</TabsTrigger>
                       </TabsList>
                       <Select
                         defaultValue="all"
@@ -799,7 +834,7 @@ export default function RequestManagementPage() {
                         </SelectContent>
                       </Select>
                     </div>
-                    <TabsContent value="list" className="m-0">
+                    <TabsContent value="requests" className="m-0">
                       {/* Batch action buttons - only show when filtering by pending, in-progress, or completed */}
                       {showCheckboxes && selectedRequests.length > 0 && (
                         <div className="flex items-center justify-between p-4 bg-muted/10 border-b">
@@ -1196,12 +1231,134 @@ export default function RequestManagementPage() {
                       )}
                     </TabsContent>
 
-                    <TabsContent value="calendar" className="m-0 p-6">
-                      <div className="flex flex-col items-center justify-center py-12 bg-muted/10 rounded-md">
-                        <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-                        <p className="text-lg font-medium">Calendar View</p>
-                        <p className="text-muted-foreground">Calendar view is under development</p>
-                      </div>
+                    <TabsContent value="samples" className="m-0">
+                      {loading ? (
+                        <div className="flex justify-center items-center p-12">
+                          <div className="flex flex-col items-center gap-2">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            <p className="text-muted-foreground">Loading samples...</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <Table>
+                          <TableHeader className="bg-muted/50">
+                            <TableRow>
+                              <TableHead className="w-[120px]">Sample ID</TableHead>
+                              <TableHead>Sample Name</TableHead>
+                              <TableHead>Request #</TableHead>
+                              <TableHead>Capability</TableHead>
+                              <TableHead>Method</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Due Date</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {displayRequests.length > 0 ? (
+                              displayRequests.map((sample) => (
+                                <TableRow key={sample.id}>
+                                  <TableCell className="font-medium">{sample.sampleId}</TableCell>
+                                  <TableCell>{sample.sampleName}</TableCell>
+                                  <TableCell>{sample.requestNumber}</TableCell>
+                                  <TableCell>{sample.capability || "-"}</TableCell>
+                                  <TableCell>{sample.method || "-"}</TableCell>
+                                  <TableCell>
+                                    <SampleStatusBadge status={sample.status} />
+                                  </TableCell>
+                                  <TableCell>{sample.dueDate || "-"}</TableCell>
+                                </TableRow>
+                              ))
+                            ) : (
+                              <TableRow>
+                                <TableCell colSpan={7} className="text-center py-10">
+                                  <div className="flex flex-col items-center justify-center gap-2">
+                                    <FileText className="h-8 w-8 text-muted-foreground" />
+                                    <p className="text-lg font-medium">No samples found</p>
+                                    <p className="text-muted-foreground">
+                                      {searchQuery
+                                        ? `No samples match "${searchQuery}"`
+                                        : "Try changing your filters to see more samples"}
+                                    </p>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      )}
+
+                      {displayRequests.length > 0 && totalPages > 1 && (
+                        <div className="py-4 px-6 border-t flex items-center justify-between">
+                          <div className="text-sm text-muted-foreground">
+                            Showing {(currentPage - 1) * pageSize + 1} to {Math.min(currentPage * pageSize, totalCount)} of {totalCount} samples
+                          </div>
+                          <Pagination>
+                            <PaginationContent>
+                              <PaginationItem>
+                                <PaginationPrevious onClick={() => setCurrentPage((p) => Math.max(1, p - 1))} disabled={currentPage === 1} />
+                              </PaginationItem>
+                              {(() => {
+                                const pages: number[] = [];
+                                const maxNumbers = Math.min(5, totalPages);
+                                let start = Math.max(1, currentPage - 2);
+                                let end = start + maxNumbers - 1;
+                                if (end > totalPages) {
+                                  end = totalPages;
+                                  start = Math.max(1, end - maxNumbers + 1);
+                                }
+                                for (let p = start; p <= end; p++) {
+                                  pages.push(p);
+                                }
+                                const items = [] as JSX.Element[];
+                                if (start > 1) {
+                                  items.push(
+                                    <PaginationItem key={1}>
+                                      <PaginationLink onClick={() => setCurrentPage(1)} isActive={currentPage === 1}>
+                                        1
+                                      </PaginationLink>
+                                    </PaginationItem>
+                                  );
+                                  if (start > 2) {
+                                    items.push(
+                                      <PaginationItem key="start-ellipsis">
+                                        <span className="p-2">...</span>
+                                      </PaginationItem>
+                                    );
+                                  }
+                                }
+                                items.push(
+                                  ...pages.map((page) => (
+                                    <PaginationItem key={page}>
+                                      <PaginationLink onClick={() => setCurrentPage(page)} isActive={currentPage === page}>
+                                        {page}
+                                      </PaginationLink>
+                                    </PaginationItem>
+                                  ))
+                                );
+                                if (end < totalPages) {
+                                  if (end < totalPages - 1) {
+                                    items.push(
+                                      <PaginationItem key="end-ellipsis">
+                                        <span className="p-2">...</span>
+                                      </PaginationItem>
+                                    );
+                                  }
+                                  items.push(
+                                    <PaginationItem key={totalPages}>
+                                      <PaginationLink onClick={() => setCurrentPage(totalPages)} isActive={currentPage === totalPages}>
+                                        {totalPages}
+                                      </PaginationLink>
+                                    </PaginationItem>
+                                  );
+                                }
+                                return items;
+                              })()}
+                              <PaginationItem>
+                                <PaginationNext onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} />
+                              </PaginationItem>
+                            </PaginationContent>
+                          </Pagination>
+                        </div>
+                      )}
                     </TabsContent>
                   </Tabs>
                 </CardContent>

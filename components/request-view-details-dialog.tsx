@@ -78,7 +78,7 @@ export function RequestViewDetailsDialog({
         if (requestResult.data?.type === "ASR") {
           try {
             // Fetch ASR data
-            const asrResponse = await fetch(`/api/asrs/details?asrId=${requestResult.data.id}`)
+            const asrResponse = await fetch(`/api/asrs/${requestResult.data.id}`)
             const asrResult = await asrResponse.json()
 
             if (asrResult.success) {

@@ -1114,49 +1114,75 @@ export default function RequestManagementPage() {
                               </PaginationItem>
 
                               {/* Generate page numbers */}
-                              {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
-                                let pageNumber;
+                              {(() => {
+                                const pages: number[] = [];
+                                const maxNumbers = Math.min(5, totalPages);
+                                let start = Math.max(1, currentPage - 2);
+                                let end = start + maxNumbers - 1;
 
-                                // Always show page 1
-                                if (i === 0 && currentPage <= 3) {
-                                  pageNumber = i + 1;
+                                if (end > totalPages) {
+                                  end = totalPages;
+                                  start = Math.max(1, end - maxNumbers + 1);
                                 }
-                                // Always show the last page
-                                else if (i === 4 && currentPage > totalPages - 3) {
-                                  pageNumber = totalPages;
+
+                                for (let p = start; p <= end; p++) {
+                                  pages.push(p);
                                 }
-                                // Show ellipsis
-                                else if (
-                                  (i === 1 && currentPage > 3) ||
-                                  (i === 3 && currentPage < totalPages - 2)
-                                ) {
-                                  return (
-                                    <PaginationItem key={`ellipsis-${i}`}>
-                                      <span className="p-2">...</span>
+
+                                const items = [] as JSX.Element[];
+
+                                if (start > 1) {
+                                  items.push(
+                                    <PaginationItem key={1}>
+                                      <PaginationLink onClick={() => setCurrentPage(1)} isActive={currentPage === 1}>
+                                        1
+                                      </PaginationLink>
+                                    </PaginationItem>
+                                  );
+                                  if (start > 2) {
+                                    items.push(
+                                      <PaginationItem key="start-ellipsis">
+                                        <span className="p-2">...</span>
+                                      </PaginationItem>
+                                    );
+                                  }
+                                }
+
+                                items.push(
+                                  ...pages.map((page) => (
+                                    <PaginationItem key={page}>
+                                      <PaginationLink
+                                        onClick={() => setCurrentPage(page)}
+                                        isActive={currentPage === page}
+                                      >
+                                        {page}
+                                      </PaginationLink>
+                                    </PaginationItem>
+                                  ))
+                                );
+
+                                if (end < totalPages) {
+                                  if (end < totalPages - 1) {
+                                    items.push(
+                                      <PaginationItem key="end-ellipsis">
+                                        <span className="p-2">...</span>
+                                      </PaginationItem>
+                                    );
+                                  }
+                                  items.push(
+                                    <PaginationItem key={totalPages}>
+                                      <PaginationLink
+                                        onClick={() => setCurrentPage(totalPages)}
+                                        isActive={currentPage === totalPages}
+                                      >
+                                        {totalPages}
+                                      </PaginationLink>
                                     </PaginationItem>
                                   );
                                 }
-                                // Show first and last pages
-                                else if (i === 0 && currentPage > 3) {
-                                  pageNumber = 1;
-                                } else if (i === 4 && currentPage <= totalPages - 3) {
-                                  pageNumber = totalPages;
-                                } else {
-                                  // Otherwise show current page and 2 pages before/after
-                                  pageNumber = currentPage - 2 + i;
-                                }
 
-                                return (
-                                  <PaginationItem key={pageNumber}>
-                                    <PaginationLink
-                                      onClick={() => setCurrentPage(pageNumber)}
-                                      isActive={currentPage === pageNumber}
-                                    >
-                                      {pageNumber}
-                                    </PaginationLink>
-                                  </PaginationItem>
-                                );
-                              })}
+                                return items;
+                              })()}
 
                               <PaginationItem>
                                 <PaginationNext

@@ -79,4 +79,24 @@ const TestingERListSchema = new Schema(
       required: true,
       description: 'Person who made the reservation'
     },
-    operatedBy
+    operatedBy: {
+      type: String,
+      description: 'Person who operated the equipment'
+    },
+    
+    // Remarks
+    remarks: {
+      type: String,
+      description: 'Additional notes about this reservation'
+    }
+  },
+  {
+    timestamps: {
+      createdAt: 'createdAt',
+      updatedAt: 'updatedAt'
+    },
+    collection: 'testing_er_lists'
+  }
+);
+
+module.exports = mongoose.models.TestingERList || mongoose.model('TestingERList', TestingERListSchema);

@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useState, useEffect } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
 import { ChevronLeft, CheckCircle, Printer, Calendar, FileText, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import DashboardLayout from "@/components/dashboard-layout"
@@ -10,30 +10,165 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function EquipmentReservationConfirmationPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const requestNumber = searchParams.get('requestNumber')
+  
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [reservation, setReservation] = useState(null)
 
-  // Mock data - in a real application, this would come from the form submission
-  const [reservation, setReservation] = useState({
-    id: "RE-ER-0323-00123",
-    projectName: "Polymer Crystallization Study",
-    capability: "Mesostructure & Imaging",
-    equipment: "SAXS (Small-Angle X-ray Scattering)",
-    date: "2023-03-25",
-    timeSlot: "10:00 - 12:00",
-    samples: [
-      { id: 1, name: "Sample A", description: "HDPE film, 2mm thickness" },
-      { id: 2, name: "Sample B", description: "LDPE film, 1mm thickness" },
-    ],
-    testingMode: "Expert Operator",
-    priority: "Normal",
-    status: "Pending Confirmation",
-    contactPerson: "Dr. Sarah Johnson",
-    contactEmail: "sarah.johnson@pcrd.com",
-    contactPhone: "+66 2 123 4567",
-    labLocation: "Building 3, Room 405, PCRD Central Laboratory",
-  })
+  useEffect(() => {
+    // If no request number is provided, use mock data for development
+    if (!requestNumber) {
+      setReservation({
+        id: "25-ER-2025-0001",
+        projectName: "Polymer Crystallization Study",
+        capability: "Mesostructure & Imaging",
+        equipment: "SAXS (Small-Angle X-ray Scattering)",
+        date: "2025-05-25",
+        timeSlot: "10:00 - 12:00",
+        samples: [
+          { id: 1, name: "Sample A", description: "HDPE film, 2mm thickness" },
+          { id: 2, name: "Sample B", description: "LDPE film, 1mm thickness" },
+        ],
+        testingMode: "Expert Operator",
+        priority: "Normal",
+        status: "Pending Confirmation",
+        contactPerson: "Dr. Sarah Johnson",
+        contactEmail: "sarah.johnson@pcrd.com",
+        contactPhone: "+66 2 123 4567",
+        labLocation: "Building 3, Room 405, PCRD Central Laboratory",
+      })
+      setLoading(false)
+      return
+    }
+
+    // Fetch the request details from the API
+    const fetchReservation = async () => {
+      try {
+        setLoading(true)
+        const response = await fetch(`/api/requests/details?requestNumber=${requestNumber}`)
+        if (!response.ok) {
+          throw new Error(`Failed to fetch request details: ${response.statusText}`)
+        }
+        
+        const data = await response.json()
+        if (!data.success) {
+          throw new Error(data.error || 'Failed to fetch request details')
+        }
+        
+        // Transform API data to match the UI needs
+        const requestData = data.data
+        setReservation({
+          id: requestData.requestNumber,
+          projectName: requestData.requestTitle,
+          capability: "Equipment Reservation",
+          equipment: JSON.parse(requestData.jsonEquipmentList || '[]')
+            .map(eq => eq.name)
+            .join(', '),
+          date: new Date(requestData.reservationStartDate).toLocaleDateString(),
+          timeSlot: `${new Date(requestData.reservationStartDate).toLocaleTimeString()} - ${new Date(requestData.reservationEndDate).toLocaleTimeString()}`,
+          priority: requestData.priority,
+          status: requestData.requestStatus === 'submitted' ? 'Pending Confirmation' : requestData.requestStatus,
+          contactPerson: "PCRD Lab Manager",
+          contactEmail: "lab.manager@pcrd.com",
+          contactPhone: "+66 2 123 4567",
+          labLocation: "Building 3, Room 405, PCRD Central Laboratory",
+        })
+      } catch (error) {
+        console.error('Error fetching reservation details:', error)
+        setError(error.message)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchReservation()
+  }, [requestNumber])
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col space-y-6">
+          <div className="flex items-center space-x-2">
+            <Link href="/dashboard">
+              <Button variant="ghost" size="sm" className="gap-1">
+                <ChevronLeft className="h-4 w-4" />
+                Back to Dashboard
+              </Button>
+            </Link>
+          </div>
+          
+          <div className="flex flex-col space-y-2">
+            <h1 className="text-3xl font-bold tracking-tight">Reservation Confirmation</h1>
+            <p className="text-muted-foreground">Loading your equipment reservation details...</p>
+          </div>
+          
+          <Card>
+            <CardHeader className="bg-green-50 dark:bg-green-900/20">
+              <div className="flex items-center space-x-2">
+                <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                <CardTitle>Loading Reservation Details</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-6">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-24 w-full" />
+              <Separator />
+              <Skeleton className="h-60 w-full" />
+            </CardContent>
+          </Card>
+        </div>
+      </DashboardLayout>
+    )
+  }
+
+  if (error) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col space-y-6">
+          <div className="flex items-center space-x-2">
+            <Link href="/dashboard">
+              <Button variant="ghost" size="sm" className="gap-1">
+                <ChevronLeft className="h-4 w-4" />
+                Back to Dashboard
+              </Button>
+            </Link>
+          </div>
+          
+          <div className="flex flex-col space-y-2">
+            <h1 className="text-3xl font-bold tracking-tight">Reservation Confirmation</h1>
+            <p className="text-muted-foreground">Error loading reservation details</p>
+          </div>
+          
+          <Card>
+            <CardHeader className="bg-red-50 dark:bg-red-900/20">
+              <div className="flex items-center space-x-2">
+                <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400" />
+                <CardTitle>Error Loading Reservation</CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              <Alert variant="destructive">
+                <AlertDescription>
+                  {error}. Please try again or contact support.
+                </AlertDescription>
+              </Alert>
+            </CardContent>
+            <CardFooter>
+              <Button variant="default" onClick={() => router.push("/dashboard")}>
+                Return to Dashboard
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </DashboardLayout>
+    )
+  }
 
   return (
     <DashboardLayout>
@@ -196,4 +331,3 @@ export default function EquipmentReservationConfirmationPage() {
     </DashboardLayout>
   )
 }
-

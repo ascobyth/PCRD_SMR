@@ -27,6 +27,9 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 
+// Import API client for fetching capabilities
+import { fetchCapabilities } from "@/lib/api-client"
+
 export default function ASRPage() {
   const router = useRouter()
   const [currentStep, setCurrentStep] = useState(1)
@@ -251,17 +254,84 @@ export default function ASRPage() {
     { value: "other", label: "Other" },
   ]
 
-  // Mock capabilities
-  const capabilities = [
-    {
-      id: "microstructure",
-      name: "Microstructure",
-      description: "Analysis of material structure at microscopic level",
-    },
-    { id: "rheology", name: "Rheology", description: "Study of flow and deformation of materials" },
-    { id: "small-molecule", name: "Small Molecule", description: "Analysis of small molecular compounds" },
-    { id: "mesostructure", name: "Mesostructure & Imaging", description: "Imaging and analysis at mesoscopic scale" },
-  ]
+  // State for capabilities fetched from the database
+  const [capabilities, setCapabilities] = useState<any[]>([])
+  const [isLoadingCapabilities, setIsLoadingCapabilities] = useState(true)
+
+  // Fetch capabilities from the API when the component mounts
+  useEffect(() => {
+    const getCapabilities = async () => {
+      setIsLoadingCapabilities(true)
+      try {
+        const capabilitiesData = await fetchCapabilities()
+        if (capabilitiesData.length > 0) {
+          setCapabilities(capabilitiesData)
+        } else {
+          // If no capabilities are fetched, use fallback default capabilities
+          setCapabilities([
+            {
+              id: "microstructure",
+              name: "Microstructure",
+              shortName: "MIC",
+              description: "Analysis of material structure at microscopic level",
+            },
+            { 
+              id: "rheology", 
+              name: "Rheology", 
+              shortName: "RHE",
+              description: "Study of flow and deformation of materials" 
+            },
+            { 
+              id: "small-molecule", 
+              name: "Small Molecule", 
+              shortName: "SMO",
+              description: "Analysis of small molecular compounds" 
+            },
+            { 
+              id: "mesostructure", 
+              name: "Mesostructure & Imaging", 
+              shortName: "MES",
+              description: "Imaging and analysis at mesoscopic scale" 
+            },
+          ])
+          console.warn("Using fallback capabilities as none were fetched from API")
+        }
+      } catch (error) {
+        console.error("Failed to fetch capabilities:", error)
+        // Use fallback capabilities
+        setCapabilities([
+          {
+            id: "microstructure",
+            name: "Microstructure",
+            shortName: "MIC",
+            description: "Analysis of material structure at microscopic level",
+          },
+          { 
+            id: "rheology", 
+            name: "Rheology", 
+            shortName: "RHE",
+            description: "Study of flow and deformation of materials" 
+          },
+          { 
+            id: "small-molecule", 
+            name: "Small Molecule", 
+            shortName: "SMO",
+            description: "Analysis of small molecular compounds" 
+          },
+          { 
+            id: "mesostructure", 
+            name: "Mesostructure & Imaging", 
+            shortName: "MES",
+            description: "Imaging and analysis at mesoscopic scale" 
+          },
+        ])
+      } finally {
+        setIsLoadingCapabilities(false)
+      }
+    }
+
+    getCapabilities()
+  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -1565,39 +1635,52 @@ export default function ASRPage() {
                       review your selection.
                     </p>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {capabilities.map((capability) => (
-                        <div
-                          key={capability.id}
-                          className={`border rounded-lg p-4 cursor-pointer transition-all ${
-                            formData.selectedCapabilities.includes(capability.id)
-                              ? "border-primary bg-primary/5"
-                              : "hover:border-primary/50"
-                          }`}
-                          onClick={() => handleCapabilityToggle(capability.id)}
-                        >
-                          <div className="flex items-start space-x-3">
-                            <Checkbox
-                              id={`capability-${capability.id}`}
-                              checked={formData.selectedCapabilities.includes(capability.id)}
-                              onCheckedChange={() => handleCapabilityToggle(capability.id)}
-                              className="mt-1"
-                            />
-                            <div>
-                              <Label
-                                htmlFor={`capability-${capability.id}`}
-                                className="text-base font-medium cursor-pointer"
-                              >
-                                {capability.name}
-                              </Label>
-                              <p className="text-sm text-muted-foreground mt-1">{capability.description}</p>
+                    {isLoadingCapabilities ? (
+                      <div className="flex justify-center items-center h-40">
+                        <div className="text-center">
+                          <div className="inline-block h-6 w-6 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+                          <p className="mt-2 text-sm text-muted-foreground">Loading capabilities...</p>
+                        </div>
+                      </div>
+                    ) : capabilities.length === 0 ? (
+                      <div className="border rounded-md p-4 text-center">
+                        <p className="text-sm text-muted-foreground">No capabilities available</p>
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {capabilities.map((capability) => (
+                          <div
+                            key={capability.id}
+                            className={`border rounded-lg p-4 cursor-pointer transition-all ${
+                              formData.selectedCapabilities.includes(capability.id)
+                                ? "border-primary bg-primary/5"
+                                : "hover:border-primary/50"
+                            }`}
+                            onClick={() => handleCapabilityToggle(capability.id)}
+                          >
+                            <div className="flex items-start space-x-3">
+                              <Checkbox
+                                id={`capability-${capability.id}`}
+                                checked={formData.selectedCapabilities.includes(capability.id)}
+                                onCheckedChange={() => handleCapabilityToggle(capability.id)}
+                                className="mt-1"
+                              />
+                              <div>
+                                <Label
+                                  htmlFor={`capability-${capability.id}`}
+                                  className="text-base font-medium cursor-pointer"
+                                >
+                                  {capability.name} ({capability.shortName})
+                                </Label>
+                                <p className="text-sm text-muted-foreground mt-1">{capability.description}</p>
+                              </div>
                             </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
+                        ))}
+                      </div>
+                    )}
 
-                    {formData.selectedCapabilities.length === 0 && (
+                    {!isLoadingCapabilities && capabilities.length > 0 && formData.selectedCapabilities.length === 0 && (
                       <p className="text-sm text-red-500 mt-2">Please select a capability to continue</p>
                     )}
                   </div>
@@ -1757,7 +1840,7 @@ export default function ASRPage() {
                           const cap = capabilities.find((c) => c.id === capId)
                           return cap ? (
                             <span key={capId} className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                              {cap.name}
+                              {cap.name} ({cap.shortName})
                             </span>
                           ) : null
                         })}

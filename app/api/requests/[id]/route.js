@@ -1,13 +1,24 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/mongoose';
-import Request from '@/models/Request';
+import mongoose from 'mongoose';
+
+// Import models directly from the models directory
+const RequestList = mongoose.models.RequestList || require('@/models/RequestList');
+const ErList = mongoose.models.ErList || require('@/models/ErList');
 
 export async function GET(request, { params }) {
   try {
     await dbConnect();
 
     const { id } = params;
-    const requestData = await Request.findById(id);
+    
+    // Try to find in RequestList first
+    let requestData = await RequestList.findById(id);
+    
+    // If not found, try in ErList
+    if (!requestData) {
+      requestData = await ErList.findById(id);
+    }
 
     if (!requestData) {
       return NextResponse.json(
@@ -32,8 +43,12 @@ export async function PUT(request, { params }) {
 
     const { id } = params;
     const body = await request.json();
+    
+    // Determine which model to use based on the request type
+    const isErRequest = body.requestNumber && body.requestNumber.includes('-ER-');
+    const Model = isErRequest ? ErList : RequestList;
 
-    const updatedRequest = await Request.findByIdAndUpdate(id, body, {
+    const updatedRequest = await Model.findByIdAndUpdate(id, body, {
       new: true,
       runValidators: true
     });
@@ -78,7 +93,14 @@ export async function DELETE(request, { params }) {
     await dbConnect();
 
     const { id } = params;
-    const deletedRequest = await Request.findByIdAndDelete(id);
+    
+    // Try to delete from RequestList first
+    let deletedRequest = await RequestList.findByIdAndDelete(id);
+    
+    // If not found, try in ErList
+    if (!deletedRequest) {
+      deletedRequest = await ErList.findByIdAndDelete(id);
+    }
 
     if (!deletedRequest) {
       return NextResponse.json(

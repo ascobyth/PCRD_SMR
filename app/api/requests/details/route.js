@@ -1,215 +1,119 @@
 import { NextResponse } from 'next/server';
-import connectToDatabase, { mongoose } from '@/lib/db';
+import dbConnect from '@/lib/mongoose';
+import mongoose from 'mongoose';
 
-/**
- * API route handler for fetching request details by request number
- * @param {Request} request - The HTTP request object
- * @returns {Promise<NextResponse>} The HTTP response
- */
+// Import models directly from the models directory
+const RequestList = mongoose.models.RequestList || require('@/models/RequestList');
+const ErList = mongoose.models.ErList || require('@/models/ErList');
+const TestingSampleList = mongoose.models.TestingSampleList || require('@/models/TestingSampleList');
+
 export async function GET(request) {
   try {
-    // Connect to the database
-    await connectToDatabase();
+    await dbConnect();
 
-    // Get the request number from the URL query parameters
+    // Get the request ID from query params
     const { searchParams } = new URL(request.url);
+    const requestId = searchParams.get('requestId');
     const requestNumber = searchParams.get('requestNumber');
 
-    if (!requestNumber) {
-      return NextResponse.json(
-        { success: false, error: 'Request number is required' },
-        { status: 400 }
-      );
+    if (!requestId && !requestNumber) {
+      return NextResponse.json({
+        success: false,
+        error: 'Request ID or request number is required'
+      }, { status: 400 });
     }
 
-    console.log('Fetching request details for:', requestNumber);
+    // Determine the model to use and find the request
+    let requestData;
+    let query = {};
 
-    // Get the RequestList model
-    const RequestList = mongoose.models.RequestList || require('@/models/RequestList');
-    const TestingSampleList = mongoose.models.TestingSampleList || require('@/models/TestingSampleList');
+    if (requestId) {
+      // Try to find by ID first
+      try {
+        const objectId = new mongoose.Types.ObjectId(requestId);
+        query = { _id: objectId };
+      } catch (err) {
+        // If not a valid ObjectId, assume it's a request number
+        query = { requestNumber: requestId };
+      }
+    } else if (requestNumber) {
+      query = { requestNumber };
+    }
 
-    // Find the request by request number
-    const requestData = await RequestList.findOne({ requestNumber }).lean();
+    // Check if it's an ER request based on the request number format
+    if ((requestId && requestId.includes('-ER-')) || (requestNumber && requestNumber.includes('-ER-'))) {
+      // This is an ER request
+      requestData = await ErList.findOne(query);
+    } else {
+      // Try to find in RequestList first
+      requestData = await RequestList.findOne(query);
+
+      // If not found, try in ErList as a fallback
+      if (!requestData) {
+        requestData = await ErList.findOne(query);
+      }
+    }
 
     if (!requestData) {
-      console.log('Request not found in database:', requestNumber);
-
-      // For development purposes, return mock data
       return NextResponse.json({
-        success: true,
-        data: {
-          originalRequestId: requestNumber,
-          requestId: 'mock-id',
-          requestTitle: 'Mock Request Title',
-          submissionDate: new Date().toISOString().split('T')[0],
-          requester: {
-            name: 'John Doe',
-            department: 'R&D',
-            email: 'john.doe@example.com',
-            phone: '123-456-7890'
-          },
-          splitRequests: [
-            {
-              requestId: `${requestNumber}-1`,
-              capability: 'Mock Capability',
-              methods: [
-                {
-                  id: 'mock-method-id',
-                  name: 'Mock Method',
-                  samples: ['Mock Sample 1', 'Mock Sample 2']
-                }
-              ],
-              estimatedCompletion: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-              capabilityInfo: {
-                address: 'Laboratory Building',
-                contactPerson: 'Lab Manager',
-                contactEmail: 'lab@example.com',
-                contactPhone: '123-456-7890'
-              }
-            }
-          ],
-          samples: [
-            {
-              id: 'mock-sample-id-1',
-              name: 'Mock Sample 1',
-              generatedName: 'Mock Sample 1',
-              category: 'Mock Category'
-            },
-            {
-              id: 'mock-sample-id-2',
-              name: 'Mock Sample 2',
-              generatedName: 'Mock Sample 2',
-              category: 'Mock Category'
-            }
-          ],
-          testMethods: [
-            {
-              id: 'mock-method-id',
-              name: 'Mock Method',
-              methodCode: 'MOCK-001',
-              category: 'Mock Category',
-              price: 100,
-              turnaround: 7,
-              samples: ['Mock Sample 1', 'Mock Sample 2']
-            }
-          ]
-        }
-      }, { status: 200 });
+        success: false,
+        error: 'Request not found'
+      }, { status: 404 });
     }
 
-    // Find all testing samples for this request
-    const testingSamples = await TestingSampleList.find({
-      requestNumber
-    }).lean();
-
-    // Parse the JSON strings in the request data
-    let samples = [];
-    let testMethods = [];
-
-    try {
-      if (requestData.jsonSampleList) {
-        samples = JSON.parse(requestData.jsonSampleList);
-      }
-
-      if (requestData.jsonTestingList) {
-        testMethods = JSON.parse(requestData.jsonTestingList);
-      }
-    } catch (error) {
-      console.error('Error parsing JSON data:', error);
-    }
-
-    // Group testing samples by capability
-    const capabilitiesMap = new Map();
-
-    testingSamples.forEach(sample => {
-      const capabilityId = sample.capabilityId ? sample.capabilityId.toString() : 'unknown';
-
-      if (!capabilitiesMap.has(capabilityId)) {
-        capabilitiesMap.set(capabilityId, {
-          capabilityId,
-          capability: 'Unknown Capability', // Will be updated if we have capability data
-          methods: [],
-          samples: new Set(),
-          estimatedCompletion: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
-          capabilityInfo: {
-            address: 'Laboratory Building',
-            contactPerson: 'Lab Manager',
-            contactEmail: 'lab@example.com',
-            contactPhone: '123-456-7890'
-          }
-        });
-      }
-
-      const capabilityGroup = capabilitiesMap.get(capabilityId);
-
-      // Add the sample to the capability group
-      capabilityGroup.samples.add(sample.sampleName);
-
-      // Find the method in the capability group or add it
-      let method = capabilityGroup.methods.find(m => m.id === sample.methodId);
-
-      if (!method) {
-        method = {
-          id: sample.methodId,
-          name: sample.methodCode || 'Unknown Method',
-          samples: []
-        };
-        capabilityGroup.methods.push(method);
-      }
-
-      // Add the sample to the method if it's not already there
-      if (!method.samples.includes(sample.sampleName)) {
-        method.samples.push(sample.sampleName);
-      }
-    });
-
-    // Convert the capabilities map to an array of split requests
-    const splitRequests = Array.from(capabilitiesMap.values()).map((capabilityGroup, index) => {
-      return {
-        requestId: `${requestNumber}-${index + 1}`,
-        capability: capabilityGroup.capability,
-        methods: capabilityGroup.methods,
-        estimatedCompletion: capabilityGroup.estimatedCompletion,
-        capabilityInfo: capabilityGroup.capabilityInfo
-      };
-    });
-
-    // Format the response
-    const response = {
-      originalRequestId: requestNumber,
-      requestId: requestData._id.toString(),
-      requestTitle: requestData.requestTitle,
-      submissionDate: requestData.createdAt ? new Date(requestData.createdAt).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-      requester: {
-        name: requestData.requesterName,
-        department: 'R&D', // Default department
-        email: requestData.requesterEmail,
-        phone: '123-456-7890' // Default phone
-      },
-      splitRequests,
-      samples,
-      testMethods: testMethods.filter(method => !method.isDeleted)
+    // Format the response data
+    const formattedData = {
+      id: requestData._id.toString(),
+      requestNumber: requestData.requestNumber,
+      title: requestData.requestTitle,
+      status: requestData.requestStatus,
+      type: requestData.isAsrRequest ? "ASR" : requestData.requestNumber?.includes('-ER-') ? "ER" : "NTR",
+      priority: requestData.priority,
+      description: requestData.description || "",
+      requester: requestData.requesterName,
+      requesterEmail: requestData.requesterEmail,
+      department: requestData.department || "",
+      requestDate: requestData.createdAt,
+      dueDate: requestData.dueDate,
+      receiveDate: requestData.receiveDate,
+      completeDate: requestData.completeDate,
+      isOnBehalf: requestData.isOnBehalf,
+      onBehalfOfName: requestData.onBehalfOfName,
+      onBehalfOfEmail: requestData.onBehalfOfEmail,
+      useIoNumber: requestData.useIoNumber,
+      ioCostCenter: requestData.ioCostCenter,
+      requesterCostCenter: requestData.requesterCostCenter,
+      urgentType: requestData.urgentType,
+      urgencyReason: requestData.urgencyReason,
+      progress: 0, // Will be calculated based on samples
     };
 
-    return NextResponse.json({ success: true, data: response }, { status: 200 });
+    // Get sample count and calculate progress
+    try {
+      const samples = await TestingSampleList.find({ requestNumber: requestData.requestNumber });
+      if (samples && samples.length > 0) {
+        const completedSamples = samples.filter(s =>
+          ["completed", "operation-completed", "test-results-completed"].includes(s.sampleStatus?.toLowerCase())
+        ).length;
+
+        formattedData.progress = Math.round((completedSamples / samples.length) * 100);
+      }
+    } catch (err) {
+      console.error("Error calculating progress:", err);
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: formattedData
+    });
+
   } catch (error) {
     console.error('Error fetching request details:', error);
 
-    // Log detailed error information
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack,
-      code: error.code
-    });
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to fetch request details',
-        details: error.message || 'Unknown error'
-      },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: false,
+      error: 'Failed to fetch request details',
+      details: error.message || 'Unknown error'
+    }, { status: 500 });
   }
 }

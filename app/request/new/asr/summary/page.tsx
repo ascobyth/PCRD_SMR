@@ -95,13 +95,35 @@ export default function ASRSummaryPage() {
     }
   }, [])
 
-  // Map capability IDs to names
-  const capabilityNames = {
-    microstructure: "Microstructure",
-    rheology: "Rheology",
-    "small-molecule": "Small Molecule",
-    mesostructure: "Mesostructure & Imaging",
+  // Map capability IDs to names and shortNames
+  const capabilityInfo = {
+    microstructure: { name: "Microstructure", shortName: "MIC" },
+    rheology: { name: "Rheology", shortName: "RHE" },
+    "small-molecule": { name: "Small Molecule", shortName: "SMO" },
+    mesostructure: { name: "Mesostructure & Imaging", shortName: "MES" },
   }
+  
+  // State to store capabilities loaded from the API
+  const [loadedCapabilities, setLoadedCapabilities] = useState<any[]>([])
+  
+  // Fetch capabilities from the API
+  useEffect(() => {
+    const fetchCapabilities = async () => {
+      try {
+        const response = await fetch('/api/capabilities')
+        if (response.ok) {
+          const data = await response.json()
+          if (data.success && data.data) {
+            setLoadedCapabilities(data.data)
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching capabilities:', error)
+      }
+    }
+    
+    fetchCapabilities()
+  }, [])
 
   const handleSubmit = async () => {
     setIsSubmitting(true)
@@ -112,6 +134,53 @@ export default function ASRSummaryPage() {
       description: 'Please wait while we process your submission.',
     })
 
+    // Get the selected capability 
+    const selectedCapability = requestData.selectedCapabilities.length > 0 ? 
+      requestData.selectedCapabilities[0] : null;
+    
+    // Find the capability details from loaded capabilities or fallback to static data
+    let capabilityDetail: any = null;
+    
+    // First try to find in loaded capabilities
+    if (selectedCapability && loadedCapabilities.length > 0) {
+      // Try to match by ID if it's a MongoDB ID (24 chars hex)
+      if (/^[0-9a-fA-F]{24}$/.test(selectedCapability)) {
+        capabilityDetail = loadedCapabilities.find(cap => cap._id === selectedCapability);
+      }
+      
+      // If not found or not a MongoDB ID, try to match by shortName
+      if (!capabilityDetail) {
+        // Look for capability with matching shortName value
+        capabilityDetail = loadedCapabilities.find(cap => 
+          cap.shortName?.toLowerCase() === selectedCapability.toLowerCase() ||
+          // Also check common capability strings
+          (selectedCapability === 'rheology' && cap.shortName === 'RHE') ||
+          (selectedCapability === 'microstructure' && cap.shortName === 'MIC') ||
+          (selectedCapability === 'small-molecule' && cap.shortName === 'SMO') ||
+          (selectedCapability === 'mesostructure' && cap.shortName === 'MES')
+        );
+      }
+    }
+    
+    // If not found in loaded capabilities, use the static mapping
+    if (!capabilityDetail && selectedCapability) {
+      const staticCapability = capabilityInfo[selectedCapability as keyof typeof capabilityInfo];
+      if (staticCapability) {
+        capabilityDetail = {
+          shortName: staticCapability.shortName,
+          capabilityName: staticCapability.name
+        };
+      }
+    }
+    
+    // Get the capability shortName and name for submission
+    const capabilityShortName = capabilityDetail?.shortName || 
+                              (selectedCapability && capabilityInfo[selectedCapability as keyof typeof capabilityInfo]?.shortName);
+                              
+    const capabilityName = capabilityDetail?.capabilityName || 
+                         (selectedCapability && capabilityInfo[selectedCapability as keyof typeof capabilityInfo]?.name);
+      
+    // Prepare the submission data properly formatted for the API
     const submissionData = {
       asrName: requestData.requestTitle,
       asrType: 'project',
@@ -120,11 +189,24 @@ export default function ASRSummaryPage() {
       requesterEmail: requestData.requester.email,
       asrRequireDate: requestData.desiredCompletionDate,
       asrSampleList: requestData.samples,
-      capabilityId: requestData.selectedCapabilities[0] || null,
+      capabilityId: selectedCapability, // This can be the ID or shortName
+      capabilityShortName: capabilityShortName, // Explicitly include the shortName
+      capabilityName: capabilityName, // Include the full capability name
       useIoNumber: requestData.useIONumber === 'yes',
       ioCostCenter: requestData.useIONumber === 'yes' ? requestData.ioNumber : '',
       requesterCostCenter: requestData.costCenter,
+      additionalNotes: additionalNotes,
+      expectedResults: requestData.expectedResults,
+      problemSource: requestData.problemSource,
+      // Add onBehalfInformation properly formatted
+      onBehalfInformation: {
+        name: '',
+        email: '',
+        costCenter: ''
+      }
     }
+
+    console.log('Submitting ASR data:', submissionData)
 
     try {
       const response = await fetch('/api/asrs/submit', {
@@ -133,20 +215,29 @@ export default function ASRSummaryPage() {
         body: JSON.stringify(submissionData),
       })
 
+      // Check if the request was successful
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.error || response.statusText)
+        throw new Error(errorData.error || `Request failed with status ${response.status}`)
       }
 
       const result = await response.json()
 
       if (result.success) {
+        // Clear the localStorage data to prevent resubmission
+        localStorage.removeItem("asrFormData")
+        localStorage.removeItem("asrSamples")
+        
+        // Store the submission details for the confirmation page
+        localStorage.setItem('submittedAsrNumber', result.data.asrNumber)
+        localStorage.setItem('submittedAsrId', result.data.asrId)
+        
         toast({
           title: 'Request submitted successfully',
           description: `Your ASR request ${result.data.asrNumber} has been submitted for review.`,
         })
-        localStorage.setItem('submittedAsrNumber', result.data.asrNumber)
-        localStorage.setItem('submittedAsrId', result.data.asrId)
+        
+        // Navigate to confirmation page after successful submission
         setTimeout(() => {
           window.location.href = '/request/new/asr/confirmation'
         }, 1000)
@@ -178,12 +269,10 @@ export default function ASRSummaryPage() {
           window.location.href = '/request/new/asr/confirmation'
         }, 1000)
       } else {
-
         const message = error instanceof Error ? error.message : 'Could not connect to the server. Please try again.'
         toast({
           title: 'Submission failed',
           description: message,
-
           variant: 'destructive',
         })
       }
@@ -316,7 +405,7 @@ export default function ASRSummaryPage() {
                 <div className="flex flex-wrap gap-2">
                   {requestData.selectedCapabilities.map((capability) => (
                     <Badge key={capability} className="bg-blue-100 text-blue-800 border-blue-200 px-3 py-1">
-                      {capabilityNames[capability as keyof typeof capabilityNames]}
+                      {capabilityInfo[capability as keyof typeof capabilityInfo]?.name || capability}
                     </Badge>
                   ))}
                 </div>

@@ -2,7 +2,7 @@
 
 import React from "react"
 
-import { useState, useMemo } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import {
   Clock,
@@ -28,7 +28,16 @@ import {
   Check,
   X,
   ChevronRight,
+  RefreshCw,
+  Loader2,
+  PackageOpen,
 } from "lucide-react"
+
+// Import Capability related data
+import CAPABILITY_CATEGORIES, {
+  getCapabilityIcon,
+  matchCapabilityToCategory
+} from "@/models/Capability.ts"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -56,185 +65,204 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Progress } from "@/components/ui/progress"
 import { Checkbox } from "@/components/ui/checkbox"
 import { RequestSummaryDialog } from "@/components/request-summary-dialog"
+import { RequestStatusBadge } from "@/components/request-status-badge"
+import { SampleReceiveDialog } from "@/components/sample-receive-dialog"
+import { RequestViewDetailsDialog } from "@/components/request-view-details-dialog"
+import { toast } from "sonner"
+import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
+
+// Type mapping component
+const RequestTypeBadge = ({ type }: { type: string }) => {
+  switch (type) {
+    case "NTR":
+      return <Badge variant="outline" className="bg-blue-50 text-blue-800 hover:bg-blue-50 border-blue-200">NTR</Badge>
+    case "ASR":
+      return <Badge variant="outline" className="bg-purple-50 text-purple-800 hover:bg-purple-50 border-purple-200">ASR</Badge>
+    case "ER":
+      return <Badge variant="outline" className="bg-green-50 text-green-800 hover:bg-green-50 border-green-200">ER</Badge>
+    default:
+      return <Badge variant="outline">{type}</Badge>
+  }
+}
 
 export default function RequestManagementPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [activeView, setActiveView] = useState("list")
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
+  const [capabilityFilter, setCapabilityFilter] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedRequests, setSelectedRequests] = useState<string[]>([])
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedRequest, setSelectedRequest] = useState<any>(null)
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false)
+  const [receiveDialogOpen, setReceiveDialogOpen] = useState(false)
+  const [viewDetailsDialogOpen, setViewDetailsDialogOpen] = useState(false)
 
-  // Mock data for requests
-  const [requests, setRequests] = useState([
-    {
-      id: "REQ-2023-001",
-      title: "HDPE Film Analysis",
-      type: "NTR",
-      capability: "Mechanical",
-      status: "pending",
-      priority: "high",
-      requester: "John Smith",
-      requestDate: "2023-10-15",
-      dueDate: "2023-10-20",
-      assignedTo: "Mary Johnson",
-      progress: 0,
-      samples: 3,
-      department: "Packaging R&D",
-      description: "Analysis of tensile strength and elongation properties of HDPE film samples.",
-    },
-    {
-      id: "REQ-2023-002",
-      title: "PP Copolymer Characterization",
-      type: "NTR",
-      capability: "Thermal",
-      status: "in-progress",
-      priority: "medium",
-      requester: "Sarah Lee",
-      requestDate: "2023-10-14",
-      dueDate: "2023-10-22",
-      assignedTo: "David Chen",
-      progress: 45,
-      samples: 2,
-      department: "Product Development",
-      description: "Thermal analysis of PP copolymer samples for new product development.",
-    },
-    {
-      id: "REQ-2023-003",
-      title: "LLDPE Failure Analysis",
-      type: "ASR",
-      capability: "Microscopy",
-      status: "completed",
-      priority: "high",
-      requester: "Michael Brown",
-      requestDate: "2023-10-10",
-      dueDate: "2023-10-18",
-      assignedTo: "Lisa Wong",
-      progress: 100,
-      samples: 1,
-      department: "Quality Control",
-      description: "Investigation of failure mechanism in LLDPE film used in food packaging.",
-    },
-    {
-      id: "REQ-2023-004",
-      title: "PET Bottle Testing",
-      type: "NTR",
-      capability: "Physical",
-      status: "rejected",
-      priority: "low",
-      requester: "Robert Johnson",
-      requestDate: "2023-10-12",
-      dueDate: "2023-10-19",
-      assignedTo: "Unassigned",
-      progress: 0,
-      samples: 5,
-      department: "Beverage Packaging",
-      description: "Standard physical testing of PET bottles for carbonated beverages.",
-    },
-    {
-      id: "REQ-2023-005",
-      title: "LDPE Film Tensile Strength",
-      type: "NTR",
-      capability: "Mechanical",
-      status: "pending",
-      priority: "medium",
-      requester: "Emily Davis",
-      requestDate: "2023-10-16",
-      dueDate: "2023-10-23",
-      assignedTo: "Unassigned",
-      progress: 0,
-      samples: 4,
-      department: "Film Production",
-      description: "Tensile strength testing of LDPE film samples from different production batches.",
-    },
-    {
-      id: "REQ-2023-006",
-      title: "GC-MS Equipment Reservation",
-      type: "ER",
-      capability: "Analytical",
-      status: "approved",
-      priority: "medium",
-      requester: "James Wilson",
-      requestDate: "2023-10-13",
-      dueDate: "2023-10-21",
-      assignedTo: "Alex Martinez",
-      progress: 0,
-      samples: 0,
-      department: "R&D Chemistry",
-      description: "Reservation of GC-MS equipment for volatile compound analysis.",
-    },
-    {
-      id: "REQ-2023-007",
-      title: "Polymer Blend Compatibility Study",
-      type: "ASR",
-      capability: "R&D",
-      status: "in-progress",
-      priority: "high",
-      requester: "Jennifer Taylor",
-      requestDate: "2023-10-11",
-      dueDate: "2023-10-25",
-      assignedTo: "Thomas Anderson",
-      progress: 65,
-      samples: 6,
-      department: "Materials Research",
-      description: "Research study on compatibility of novel polymer blends for automotive applications.",
-    },
-    {
-      id: "REQ-2023-008",
-      title: "FTIR Analysis of Unknown Residue",
-      type: "ASR",
-      capability: "Analytical",
-      status: "pending",
-      priority: "urgent",
-      requester: "Karen White",
-      requestDate: "2023-10-17",
-      dueDate: "2023-10-19",
-      assignedTo: "Unassigned",
-      progress: 0,
-      samples: 1,
-      department: "Quality Assurance",
-      description: "Urgent analysis of unknown residue found in production equipment.",
-    },
-  ])
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const [pageSize, setPageSize] = useState(20)
+
+  // Loading states
+  const [loading, setLoading] = useState(true)
+  const [batchActionLoading, setBatchActionLoading] = useState(false)
+
+  // State for storing requests from API
+  const [requests, setRequests] = useState<any[]>([])
+
+  // Capabilities from API
+  const [capabilities, setCapabilities] = useState<any[]>([])
+  const [capabilityCounts, setCapabilityCounts] = useState<Record<string, number>>({})
+
+  // Status counts
+  const [pendingCount, setPendingCount] = useState(0)
+  const [inProgressCount, setInProgressCount] = useState(0)
+  const [completedCount, setCompletedCount] = useState(0)
+  const [rejectedCount, setRejectedCount] = useState(0)
+  const [terminatedCount, setTerminatedCount] = useState(0)
+
+  // Type counts
+  const [typeCounts, setTypeCounts] = useState({ ntr: 0, asr: 0, er: 0 })
+
+  // Fetch requests from API
+  const fetchRequests = async () => {
+    setLoading(true)
+    try {
+      console.log('Fetching with filters:', {
+        status: statusFilter,
+        priority: priorityFilter,
+        capability: capabilityFilter,
+        type: activeTab,
+        search: searchQuery,
+        page: currentPage
+      });
+
+      const response = await fetch(
+        `/api/requests/manage?status=${encodeURIComponent(statusFilter)}&priority=${priorityFilter}&capability=${capabilityFilter}&type=${activeTab}&search=${encodeURIComponent(searchQuery)}&page=${currentPage}&limit=${pageSize}`
+      )
+      const data = await response.json()
+
+      if (data.success) {
+        // Get basic request data
+        const requestsData = data.data || [];
+
+        // For pending receive requests, fetch the sample counts
+        if (statusFilter === "pending receive sample" && requestsData.length > 0) {
+          const requestsWithSampleCounts = await Promise.all(
+            requestsData.map(async (request) => {
+              try {
+                const samplesResponse = await fetch(`/api/requests/samples?requestId=${request.id}`);
+                const samplesData = await samplesResponse.json();
+
+                if (samplesData.success) {
+                  const samples = samplesData.data || [];
+                  const totalSamples = samples.length;
+                  const receivedSamples = samples.filter(
+                    (sample) => sample.status !== "Pending Receive"
+                  ).length;
+
+                  return {
+                    ...request,
+                    samplesReceived: receivedSamples,
+                    samplesTotal: totalSamples
+                  };
+                }
+                return request;
+              } catch (error) {
+                console.error(`Error fetching samples for request ${request.id}:`, error);
+                return request;
+              }
+            })
+          );
+
+          setRequests(requestsWithSampleCounts);
+        } else {
+          setRequests(requestsData);
+        }
+
+        setTotalPages(data.pagination.pages || 1)
+        setTotalCount(data.pagination.total || 0)
+
+        // Update type counts if available
+        if (data.typeCounts) {
+          setTypeCounts(data.typeCounts)
+        }
+
+        // Update capabilities data
+        if (data.capabilities) {
+          setCapabilities(data.capabilities)
+        }
+
+        // Update capability counts
+        if (data.capabilityCounts) {
+          setCapabilityCounts(data.capabilityCounts)
+        }
+      } else {
+        console.error("Failed to fetch requests:", data.error)
+        toast.error("Failed to fetch requests")
+      }
+    } catch (error) {
+      console.error("Error fetching requests:", error)
+      toast.error("Error fetching requests")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Fetch status counts
+  const fetchStatusCounts = async () => {
+    try {
+      const pendingResponse = await fetch(`/api/requests/manage?status=pending receive sample&type=${activeTab}&limit=1`)
+      const inProgressResponse = await fetch(`/api/requests/manage?status=in-progress&type=${activeTab}&limit=1`)
+      const completedResponse = await fetch(`/api/requests/manage?status=completed&type=${activeTab}&limit=1`)
+      const rejectedResponse = await fetch(`/api/requests/manage?status=rejected&type=${activeTab}&limit=1`)
+      const terminatedResponse = await fetch(`/api/requests/manage?status=terminated&type=${activeTab}&limit=1`)
+
+      const pendingData = await pendingResponse.json()
+      const inProgressData = await inProgressResponse.json()
+      const completedData = await completedResponse.json()
+      const rejectedData = await rejectedResponse.json()
+      const terminatedData = await terminatedResponse.json()
+
+      setPendingCount(pendingData.pagination?.total || 0)
+      setInProgressCount(inProgressData.pagination?.total || 0)
+      setCompletedCount(completedData.pagination?.total || 0)
+      setRejectedCount(rejectedData.pagination?.total || 0)
+      setTerminatedCount(terminatedData.pagination?.total || 0)
+    } catch (error) {
+      console.error("Error fetching status counts:", error)
+      // If API fails, show counts based on current filtered requests
+      if (requests.length > 0) {
+        setPendingCount(requests.filter(req => req.status.toLowerCase().includes('pending')).length)
+        setInProgressCount(requests.filter(req => req.status.toLowerCase().includes('in-progress')).length)
+        setCompletedCount(requests.filter(req => req.status.toLowerCase().includes('completed')).length)
+        setRejectedCount(requests.filter(req => req.status.toLowerCase().includes('rejected')).length)
+        setTerminatedCount(requests.filter(req => req.status.toLowerCase().includes('terminated')).length)
+      }
+    }
+  }
+
+  // Fetch data when filters change
+  useEffect(() => {
+    fetchRequests()
+    fetchStatusCounts()
+  }, [statusFilter, priorityFilter, capabilityFilter, activeTab, currentPage, pageSize])
+
+  // Debounce search query
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      fetchRequests()
+    }, 500)
+    return () => clearTimeout(timeoutId)
+  }, [searchQuery])
 
   // Filter requests based on active tab (request type)
-  const typeFilteredRequests =
-    activeTab === "all" ? requests : requests.filter((request) => request.type.toLowerCase() === activeTab)
-
-  // Apply status filter
-  const statusFilteredRequests =
-    statusFilter === "all" ? typeFilteredRequests : typeFilteredRequests.filter((req) => req.status === statusFilter)
-
-  // Apply priority filter
-  const priorityFilteredRequests =
-    priorityFilter === "all"
-      ? statusFilteredRequests
-      : statusFilteredRequests.filter((req) => req.priority === priorityFilter)
-
-  // Apply search filter
-  const searchFilteredRequests = searchQuery
-    ? priorityFilteredRequests.filter(
-        (req) =>
-          req.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          req.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          req.requester.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          req.department.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
-    : priorityFilteredRequests
-
-  // Final displayed requests
-  const displayRequests = searchFilteredRequests
-
-  // Count requests by status
-  const pendingCount = requests.filter((req) => req.status === "pending").length
-  const inProgressCount = requests.filter((req) => req.status === "in-progress" || req.status === "approved").length
-  const completedCount = requests.filter((req) => req.status === "completed").length
+  const displayRequests = requests
 
   // Check if we should show checkboxes (when filtering by pending, in-progress, or completed)
-  const showCheckboxes = statusFilter === "pending" || statusFilter === "in-progress" || statusFilter === "completed"
+  const showCheckboxes = statusFilter === "pending receive sample" || statusFilter === "in-progress" || statusFilter === "completed"
 
   // Handle checkbox selection
   const toggleSelectRequest = (id: string) => {
@@ -251,33 +279,74 @@ export default function RequestManagementPage() {
   }
 
   // Handle batch actions
-  const handleReceiveAll = () => {
-    // In a real app, this would update the status of all selected requests
-    console.log("Receiving all selected requests:", selectedRequests)
-    // After processing, clear selections
-    setSelectedRequests([])
+  const handleBatchAction = async (action: string) => {
+    if (selectedRequests.length === 0) return
+
+    setBatchActionLoading(true)
+    try {
+      // Determine the new status based on the action
+      const newStatus = action === "receive" ? "in-progress" :
+                          action === "complete" ? "completed" :
+                          action === "approve" ? "approved" :
+                          action === "reject" ? "rejected" : ""
+
+      if (!newStatus) {
+        toast.error("Invalid action")
+        return
+      }
+
+      const response = await fetch("/api/requests/manage", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ids: selectedRequests,
+          status: newStatus,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        toast.success(`Successfully updated ${data.data.totalUpdated} requests to ${newStatus}`)
+
+        // Immediately update local state to reflect the change
+        setRequests(
+          requests.map(req =>
+            selectedRequests.includes(req.id) ? { ...req, status: newStatus } : req
+          )
+        )
+
+        // Update status counts based on the action
+        if (action === "receive") {
+          setPendingCount(prev => Math.max(0, prev - selectedRequests.length))
+          setInProgressCount(prev => prev + selectedRequests.length)
+        } else if (action === "complete") {
+          setInProgressCount(prev => Math.max(0, prev - selectedRequests.length))
+          setCompletedCount(prev => prev + selectedRequests.length)
+        } else if (action === "reject") {
+          setRejectedCount(prev => prev + selectedRequests.length)
+        }
+
+        setSelectedRequests([])
+        fetchRequests()
+        fetchStatusCounts()
+      } else {
+        throw new Error(data.error || "Failed to update requests")
+      }
+    } catch (error) {
+      console.error(`Error performing batch action (${action}):`, error)
+      toast.error("An error occurred while updating requests")
+    } finally {
+      setBatchActionLoading(false)
+    }
   }
 
-  const handleCompleteAll = () => {
-    // In a real app, this would update the status of all selected requests
-    console.log("Completing all selected requests:", selectedRequests)
-    // After processing, clear selections
-    setSelectedRequests([])
-  }
-
-  const handleApproveAll = () => {
-    // In a real app, this would update the status of all selected requests to approved
-    console.log("Approving all selected requests:", selectedRequests)
-    // After processing, clear selections
-    setSelectedRequests([])
-  }
-
-  const handleRejectAll = () => {
-    // In a real app, this would update the status of all selected requests to rejected
-    console.log("Rejecting all selected requests:", selectedRequests)
-    // After processing, clear selections
-    setSelectedRequests([])
-  }
+  const handleReceiveAll = () => handleBatchAction("receive")
+  const handleCompleteAll = () => handleBatchAction("complete")
+  const handleApproveAll = () => handleBatchAction("approve")
+  const handleRejectAll = () => handleBatchAction("reject")
 
   // Handle opening request summary
   const handleOpenRequestSummary = (request: any) => {
@@ -285,223 +354,81 @@ export default function RequestManagementPage() {
     setSummaryDialogOpen(true)
   }
 
+  // Handle opening request details view
+  const handleOpenRequestDetails = (e: React.MouseEvent, request: any) => {
+    e.stopPropagation()
+    setSelectedRequest(request)
+    setViewDetailsDialogOpen(true)
+  }
+
   // Handle status change from the summary dialog
   const handleStatusChange = (requestId: string, newStatus: string) => {
+    // Update in local state
     setRequests(requests.map((req) => (req.id === requestId ? { ...req, status: newStatus } : req)))
-  }
 
-  // Status badge component
-  const StatusBadge = ({ status }: { status: string }) => {
-    switch (status) {
-      case "pending":
-        return (
-          <Badge
-            variant="outline"
-            className="bg-yellow-50 text-yellow-700 border-yellow-300 flex items-center gap-1 font-medium"
-          >
-            <Clock3 className="h-3 w-3" /> Pending
-          </Badge>
-        )
-      case "in-progress":
-        return (
-          <Badge
-            variant="outline"
-            className="bg-blue-50 text-blue-700 border-blue-300 flex items-center gap-1 font-medium"
-          >
-            <Clock className="h-3 w-3" /> In Progress
-          </Badge>
-        )
-      case "completed":
-        return (
-          <Badge
-            variant="outline"
-            className="bg-green-50 text-green-700 border-green-300 flex items-center gap-1 font-medium"
-          >
-            <CheckCircle2 className="h-3 w-3" /> Completed
-          </Badge>
-        )
-      case "rejected":
-        return (
-          <Badge
-            variant="outline"
-            className="bg-red-50 text-red-700 border-red-300 flex items-center gap-1 font-medium"
-          >
-            <XCircle className="h-3 w-3" /> Rejected
-          </Badge>
-        )
-      case "approved":
-        return (
-          <Badge
-            variant="outline"
-            className="bg-green-50 text-green-700 border-green-300 flex items-center gap-1 font-medium"
-          >
-            <CheckCircle2 className="h-3 w-3" /> Approved
-          </Badge>
-        )
-      default:
-        return <Badge variant="outline">{status}</Badge>
-    }
-  }
+    // Update counts based on status change
+    const request = requests.find(req => req.id === requestId)
+    if (request) {
+      const oldStatus = request.status
 
-  // Priority badge component
-  const PriorityBadge = ({ priority }: { priority: string }) => {
-    switch (priority) {
-      case "urgent":
-        return <Badge className="bg-red-500 text-white hover:bg-red-600 font-medium px-3">Urgent</Badge>
-      case "high":
-        return <Badge className="bg-red-100 text-red-800 hover:bg-red-100 font-medium px-3">High</Badge>
-      case "medium":
-        return <Badge className="bg-orange-100 text-orange-800 hover:bg-orange-100 font-medium px-3">Medium</Badge>
-      case "low":
-        return <Badge className="bg-green-100 text-green-800 hover:bg-green-100 font-medium px-3">Low</Badge>
-      default:
-        return <Badge>{priority}</Badge>
+      // Decrement old status count
+      if (oldStatus.toLowerCase().includes('pending')) {
+        setPendingCount(prev => Math.max(0, prev - 1))
+      } else if (oldStatus.toLowerCase().includes('in-progress')) {
+        setInProgressCount(prev => Math.max(0, prev - 1))
+      } else if (oldStatus.toLowerCase().includes('completed')) {
+        setCompletedCount(prev => Math.max(0, prev - 1))
+      } else if (oldStatus.toLowerCase().includes('rejected')) {
+        setRejectedCount(prev => Math.max(0, prev - 1))
+      } else if (oldStatus.toLowerCase().includes('terminated')) {
+        setTerminatedCount(prev => Math.max(0, prev - 1))
+      }
+
+      // Increment new status count
+      if (newStatus.toLowerCase().includes('pending')) {
+        setPendingCount(prev => prev + 1)
+      } else if (newStatus.toLowerCase().includes('in-progress')) {
+        setInProgressCount(prev => prev + 1)
+      } else if (newStatus.toLowerCase().includes('completed')) {
+        setCompletedCount(prev => prev + 1)
+      } else if (newStatus.toLowerCase().includes('rejected')) {
+        setRejectedCount(prev => prev + 1)
+      } else if (newStatus.toLowerCase().includes('terminated')) {
+        setTerminatedCount(prev => prev + 1)
+      }
     }
   }
 
   // Capability icon component
   const CapabilityIcon = ({ capability }: { capability: string }) => {
-    switch (capability.toLowerCase()) {
-      case "mechanical":
-        return <Layers className="h-4 w-4 text-blue-600" />
-      case "thermal":
-        return <FlaskConical className="h-4 w-4 text-orange-600" />
-      case "microscopy":
-        return <Microscope className="h-4 w-4 text-purple-600" />
-      case "physical":
-        return <Beaker className="h-4 w-4 text-green-600" />
-      case "analytical":
-        return <FlaskConical className="h-4 w-4 text-red-600" />
-      case "r&d":
-        return <Beaker className="h-4 w-4 text-indigo-600" />
+    if (!capability) return <Beaker className="h-4 w-4 text-gray-600" />;
+
+    const iconName = getCapabilityIcon(capability);
+
+    switch (iconName) {
+      case "Layers":
+        return <Layers className="h-4 w-4 text-blue-600" />;
+      case "Microscope":
+        return <Microscope className="h-4 w-4 text-purple-600" />;
+      case "FlaskConical":
+        return <FlaskConical className="h-4 w-4 text-orange-600" />;
+      case "BarChart3":
+        return <BarChart3 className="h-4 w-4 text-orange-600" />;
+      case "Beaker":
       default:
-        return <Beaker className="h-4 w-4 text-gray-600" />
+        return <Beaker className="h-4 w-4 text-green-600" />;
     }
   }
 
-  // Calendar helpers
-  const getDaysInMonth = (year: number, month: number) => {
-    return new Date(year, month + 1, 0).getDate()
-  }
-
-  const getFirstDayOfMonth = (year: number, month: number) => {
-    return new Date(year, month, 1).getDay()
-  }
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString("en-US", { year: "numeric", month: "2-digit", day: "2-digit" })
-  }
-
-  const parseDate = (dateString: string) => {
-    const [month, day, year] = dateString.split("/")
-    return new Date(Number.parseInt(year), Number.parseInt(month) - 1, Number.parseInt(day))
-  }
-
-  // Calendar navigation
-  const goToPreviousMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1))
-  }
-
-  const goToNextMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1))
-  }
-
-  const goToToday = () => {
-    setCurrentMonth(new Date())
-  }
-
-  // Calendar data
-  const calendarData = useMemo(() => {
-    const year = currentMonth.getFullYear()
-    const month = currentMonth.getMonth()
-    const daysInMonth = getDaysInMonth(year, month)
-    const firstDayOfMonth = getFirstDayOfMonth(year, month)
-
-    const days = []
-    // Add empty cells for days before the first day of the month
-    for (let i = 0; i < firstDayOfMonth; i++) {
-      days.push({ day: null, date: null })
-    }
-
-    // Add days of the month
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month, day)
-      const dateString = formatDate(date)
-
-      // Find requests due on this date
-      const requestsForDay = displayRequests.filter((req) => {
-        const dueDate = parseDate(req.dueDate)
-        return dueDate.getDate() === day && dueDate.getMonth() === month && dueDate.getFullYear() === year
-      })
-
-      days.push({
-        day,
-        date: dateString,
-        requests: requestsForDay,
-        isToday: new Date().toDateString() === date.toDateString(),
-      })
-    }
-
-    return days
-  }, [currentMonth, displayRequests])
-
-  // Group calendar days into weeks
-  const calendarWeeks = useMemo(() => {
-    const weeks = []
-    let week = []
-
-    for (let i = 0; i < calendarData.length; i++) {
-      week.push(calendarData[i])
-
-      if (week.length === 7 || i === calendarData.length - 1) {
-        // If we have 7 days or we're at the end of the month
-        weeks.push(week)
-        week = []
-      }
-    }
-
-    // If the last week is not complete, add empty cells
-    if (week.length > 0) {
-      while (week.length < 7) {
-        week.push({ day: null, date: null })
-      }
-      weeks.push(week)
-    }
-
-    return weeks
-  }, [calendarData])
-
-  // Get status color for calendar events
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "pending":
-        return "border-yellow-300 bg-yellow-50"
-      case "in-progress":
-        return "border-blue-300 bg-blue-50"
-      case "completed":
-        return "border-green-300 bg-green-50"
-      case "rejected":
-        return "border-red-300 bg-red-50"
-      case "approved":
-        return "border-green-300 bg-green-50"
-      default:
-        return "border-gray-300 bg-gray-50"
-    }
-  }
-
-  // Get priority color for calendar events
-  const getPriorityColor = (priority: string) => {
-    switch (priority) {
+  // Priority badge component
+  const PriorityBadge = ({ priority }: { priority: string }) => {
+    switch (priority?.toLowerCase()) {
       case "urgent":
-        return "border-l-4 border-l-red-500"
-      case "high":
-        return "border-l-4 border-l-red-400"
-      case "medium":
-        return "border-l-4 border-l-orange-400"
-      case "low":
-        return "border-l-4 border-l-green-400"
+        return <Badge className="bg-red-500 text-white hover:bg-red-600 font-medium px-3">Urgent</Badge>
+      case "normal":
+        return <Badge className="bg-blue-100 text-blue-800 hover:bg-blue-100 font-medium px-3">Normal</Badge>
       default:
-        return ""
+        return <Badge>{priority}</Badge>
     }
   }
 
@@ -553,12 +480,95 @@ export default function RequestManagementPage() {
               <h1 className="text-3xl font-bold tracking-tight">Request Management Hub</h1>
               <p className="text-muted-foreground">Manage and track all test requests across the PCRD system</p>
             </div>
+
+            <Button
+              onClick={() => {
+                fetchRequests()
+                fetchStatusCounts()
+              }}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Refresh Data
+            </Button>
           </div>
 
           {/* Main content area with sidebar */}
           <div className="flex flex-col lg:flex-row gap-6">
             {/* Sidebar */}
             <div className="lg:w-64 space-y-4">
+              {/* Capability Filter */}
+              <Card>
+                <CardHeader className="py-3">
+                  <CardTitle className="text-lg font-medium">Capability Filter</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <div className="space-y-1 px-1">
+                    <Button
+                      variant={capabilityFilter === "all" ? "secondary" : "ghost"}
+                      className="w-full justify-start"
+                      onClick={() => {
+                        setCapabilityFilter("all")
+                        setCurrentPage(1)
+                      }}
+                    >
+                      <Beaker className="mr-2 h-4 w-4" />
+                      All Capabilities
+                      <Badge className="ml-auto" variant="secondary">
+                        {totalCount}
+                      </Badge>
+                    </Button>
+
+                    {/* Map through predefined capabilities from Capability.ts */}
+                    {CAPABILITY_CATEGORIES.map((cap) => (
+                      <Button
+                        key={cap.id}
+                        variant={capabilityFilter === cap.id ? "secondary" : "ghost"}
+                        className="w-full justify-start"
+                        onClick={() => {
+                          setCapabilityFilter(cap.id)
+                          setCurrentPage(1)
+                        }}
+                      >
+                        <CapabilityIcon capability={cap.name} />
+                        <span className="ml-2">{cap.name}</span>
+                        <Badge className="ml-auto" variant="secondary">
+                          {capabilityCounts[cap.name] || 0}
+                        </Badge>
+                      </Button>
+                    ))}
+
+                    {/* Map through additional capabilities from API if not already in predefined list */}
+                    {capabilities
+                      .filter(cap =>
+                        !CAPABILITY_CATEGORIES.some(
+                          predefined => predefined.name.toLowerCase() === cap.name?.toLowerCase()
+                        )
+                      )
+                      .map((cap) => (
+                        <Button
+                          key={cap.id}
+                          variant={capabilityFilter === cap.id ? "secondary" : "ghost"}
+                          className="w-full justify-start"
+                          onClick={() => {
+                            setCapabilityFilter(cap.id)
+                            setCurrentPage(1)
+                          }}
+                        >
+                          <CapabilityIcon capability={cap.name} />
+                          <span className="ml-2">{cap.name}</span>
+                          <Badge className="ml-auto" variant="secondary">
+                            {capabilityCounts[cap.name] || 0}
+                          </Badge>
+                        </Button>
+                      ))
+                    }
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Status Filter */}
               <Card>
                 <CardHeader className="py-3">
                   <CardTitle className="text-lg font-medium">Status Filter</CardTitle>
@@ -571,24 +581,26 @@ export default function RequestManagementPage() {
                       onClick={() => {
                         setStatusFilter("all")
                         setSelectedRequests([])
+                        setCurrentPage(1)
                       }}
                     >
                       <ClipboardList className="mr-2 h-4 w-4" />
                       All Requests
                       <Badge className="ml-auto" variant="secondary">
-                        {requests.length}
+                        {totalCount}
                       </Badge>
                     </Button>
                     <Button
-                      variant={statusFilter === "pending" ? "secondary" : "ghost"}
+                      variant={statusFilter === "pending receive sample" ? "secondary" : "ghost"}
                       className="w-full justify-start"
                       onClick={() => {
-                        setStatusFilter("pending")
+                        setStatusFilter("pending receive sample")
                         setSelectedRequests([])
+                        setCurrentPage(1)
                       }}
                     >
                       <Clock3 className="mr-2 h-4 w-4 text-yellow-600" />
-                      Pending
+                      Pending Receive
                       <Badge className="ml-auto" variant="secondary">
                         {pendingCount}
                       </Badge>
@@ -599,6 +611,7 @@ export default function RequestManagementPage() {
                       onClick={() => {
                         setStatusFilter("in-progress")
                         setSelectedRequests([])
+                        setCurrentPage(1)
                       }}
                     >
                       <Clock className="mr-2 h-4 w-4 text-blue-600" />
@@ -613,6 +626,7 @@ export default function RequestManagementPage() {
                       onClick={() => {
                         setStatusFilter("completed")
                         setSelectedRequests([])
+                        setCurrentPage(1)
                       }}
                     >
                       <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
@@ -627,26 +641,28 @@ export default function RequestManagementPage() {
                       onClick={() => {
                         setStatusFilter("rejected")
                         setSelectedRequests([])
+                        setCurrentPage(1)
                       }}
                     >
                       <XCircle className="mr-2 h-4 w-4 text-red-600" />
                       Rejected
                       <Badge className="ml-auto" variant="secondary">
-                        {requests.filter((req) => req.status === "rejected").length}
+                        {rejectedCount}
                       </Badge>
                     </Button>
                     <Button
-                      variant={statusFilter === "approved" ? "secondary" : "ghost"}
+                      variant={statusFilter === "terminated" ? "secondary" : "ghost"}
                       className="w-full justify-start"
                       onClick={() => {
-                        setStatusFilter("approved")
+                        setStatusFilter("terminated")
                         setSelectedRequests([])
+                        setCurrentPage(1)
                       }}
                     >
-                      <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
-                      Approved
+                      <XCircle className="mr-2 h-4 w-4 text-gray-600" />
+                      TERMINATED
                       <Badge className="ml-auto" variant="secondary">
-                        {requests.filter((req) => req.status === "approved").length}
+                        {terminatedCount}
                       </Badge>
                     </Button>
                   </div>
@@ -662,7 +678,10 @@ export default function RequestManagementPage() {
                     <Button
                       variant={priorityFilter === "all" ? "secondary" : "ghost"}
                       className="w-full justify-start"
-                      onClick={() => setPriorityFilter("all")}
+                      onClick={() => {
+                        setPriorityFilter("all")
+                        setCurrentPage(1)
+                      }}
                     >
                       <ArrowUpDown className="mr-2 h-4 w-4" />
                       All Priorities
@@ -670,45 +689,29 @@ export default function RequestManagementPage() {
                     <Button
                       variant={priorityFilter === "urgent" ? "secondary" : "ghost"}
                       className="w-full justify-start"
-                      onClick={() => setPriorityFilter("urgent")}
+                      onClick={() => {
+                        setPriorityFilter("urgent")
+                        setCurrentPage(1)
+                      }}
                     >
                       <AlertCircle className="mr-2 h-4 w-4 text-red-600" />
                       Urgent
                       <Badge className="ml-auto" variant="secondary">
-                        {requests.filter((req) => req.priority === "urgent").length}
+                        {requests.filter((req) => req.priority?.toLowerCase() === "urgent").length}
                       </Badge>
                     </Button>
                     <Button
-                      variant={priorityFilter === "high" ? "secondary" : "ghost"}
+                      variant={priorityFilter === "normal" ? "secondary" : "ghost"}
                       className="w-full justify-start"
-                      onClick={() => setPriorityFilter("high")}
+                      onClick={() => {
+                        setPriorityFilter("normal")
+                        setCurrentPage(1)
+                      }}
                     >
-                      <ArrowUpDown className="mr-2 h-4 w-4 text-red-600" />
-                      High
+                      <ArrowUpDown className="mr-2 h-4 w-4 text-blue-600" />
+                      Normal
                       <Badge className="ml-auto" variant="secondary">
-                        {requests.filter((req) => req.priority === "high").length}
-                      </Badge>
-                    </Button>
-                    <Button
-                      variant={priorityFilter === "medium" ? "secondary" : "ghost"}
-                      className="w-full justify-start"
-                      onClick={() => setPriorityFilter("medium")}
-                    >
-                      <ArrowUpDown className="mr-2 h-4 w-4 text-orange-600" />
-                      Medium
-                      <Badge className="ml-auto" variant="secondary">
-                        {requests.filter((req) => req.priority === "medium").length}
-                      </Badge>
-                    </Button>
-                    <Button
-                      variant={priorityFilter === "low" ? "secondary" : "ghost"}
-                      className="w-full justify-start"
-                      onClick={() => setPriorityFilter("low")}
-                    >
-                      <ArrowUpDown className="mr-2 h-4 w-4 text-green-600" />
-                      Low
-                      <Badge className="ml-auto" variant="secondary">
-                        {requests.filter((req) => req.priority === "low").length}
+                        {requests.filter((req) => req.priority?.toLowerCase() === "normal").length}
                       </Badge>
                     </Button>
                   </div>
@@ -742,7 +745,7 @@ export default function RequestManagementPage() {
                     <CardTitle>
                       {statusFilter === "all"
                         ? "All Requests"
-                        : statusFilter === "pending"
+                        : statusFilter === "pending receive sample"
                           ? "Pending Requests"
                           : statusFilter === "in-progress"
                             ? "In Progress Requests"
@@ -774,17 +777,24 @@ export default function RequestManagementPage() {
                         <TabsTrigger value="list">List</TabsTrigger>
                         <TabsTrigger value="calendar">Calendar</TabsTrigger>
                       </TabsList>
-                      <Select defaultValue="all" onValueChange={(value) => setActiveTab(value)}>
+                      <Select
+                        defaultValue="all"
+                        value={activeTab}
+                        onValueChange={(value) => {
+                          setActiveTab(value)
+                          setCurrentPage(1)
+                        }}
+                      >
                         <SelectTrigger className="w-[180px]">
                           <SelectValue placeholder="Request Type" />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectGroup>
                             <SelectLabel>Request Type</SelectLabel>
-                            <SelectItem value="all">All Types</SelectItem>
-                            <SelectItem value="ntr">NTR</SelectItem>
-                            <SelectItem value="asr">ASR</SelectItem>
-                            <SelectItem value="er">ER</SelectItem>
+                            <SelectItem value="all">All Types ({typeCounts.ntr + typeCounts.asr + typeCounts.er})</SelectItem>
+                            <SelectItem value="ntr">NTR ({typeCounts.ntr})</SelectItem>
+                            <SelectItem value="asr">ASR ({typeCounts.asr})</SelectItem>
+                            <SelectItem value="er">ER ({typeCounts.er})</SelectItem>
                           </SelectGroup>
                         </SelectContent>
                       </Select>
@@ -797,23 +807,20 @@ export default function RequestManagementPage() {
                             <span className="font-medium">{selectedRequests.length}</span> requests selected
                           </div>
                           <div className="flex gap-2">
-                            {statusFilter === "pending" && (
+                            {statusFilter === "pending receive sample" && (
                               <>
                                 <Button
                                   size="sm"
                                   className="bg-blue-600 hover:bg-blue-700 text-white"
                                   onClick={handleReceiveAll}
+                                  disabled={batchActionLoading}
                                 >
-                                  <Clock className="mr-2 h-4 w-4" />
+                                  {batchActionLoading ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <Clock className="mr-2 h-4 w-4" />
+                                  )}
                                   Receive All
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  className="bg-green-600 hover:bg-green-700 text-white"
-                                  onClick={handleApproveAll}
-                                >
-                                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                                  Approve All
                                 </Button>
                               </>
                             )}
@@ -823,16 +830,26 @@ export default function RequestManagementPage() {
                                   size="sm"
                                   className="bg-green-600 hover:bg-green-700 text-white"
                                   onClick={handleCompleteAll}
+                                  disabled={batchActionLoading}
                                 >
-                                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                                  {batchActionLoading ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                                  )}
                                   Complete All
                                 </Button>
                                 <Button
                                   size="sm"
                                   className="bg-green-600 hover:bg-green-700 text-white"
                                   onClick={handleApproveAll}
+                                  disabled={batchActionLoading}
                                 >
-                                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                                  {batchActionLoading ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                                  )}
                                   Approve All
                                 </Button>
                               </>
@@ -843,21 +860,31 @@ export default function RequestManagementPage() {
                                   size="sm"
                                   className="bg-green-600 hover:bg-green-700 text-white"
                                   onClick={handleApproveAll}
+                                  disabled={batchActionLoading}
                                 >
-                                  <CheckCircle2 className="mr-2 h-4 w-4" />
+                                  {batchActionLoading ? (
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  ) : (
+                                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                                  )}
                                   Approve All
                                 </Button>
                               </>
                             )}
-                            {(statusFilter === "pending" ||
+                            {(statusFilter === "pending receive sample" ||
                               statusFilter === "in-progress" ||
                               statusFilter === "completed") && (
                               <Button
                                 size="sm"
                                 className="bg-red-600 hover:bg-red-700 text-white"
                                 onClick={handleRejectAll}
+                                disabled={batchActionLoading}
                               >
-                                <XCircle className="mr-2 h-4 w-4" />
+                                {batchActionLoading ? (
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                ) : (
+                                  <XCircle className="mr-2 h-4 w-4" />
+                                )}
                                 Reject All
                               </Button>
                             )}
@@ -868,369 +895,324 @@ export default function RequestManagementPage() {
                         </div>
                       )}
 
-                      <Table>
-                        <TableHeader className="bg-muted/50">
-                          <TableRow>
-                            {showCheckboxes && (
-                              <TableHead className="w-[40px]">
-                                <div className="flex items-center justify-center">
-                                  <Checkbox
-                                    checked={
-                                      selectedRequests.length === displayRequests.length && displayRequests.length > 0
-                                    }
-                                    onCheckedChange={toggleSelectAll}
-                                    aria-label="Select all requests"
-                                  />
-                                </div>
-                              </TableHead>
-                            )}
-                            <TableHead className="w-[100px]">ID</TableHead>
-                            <TableHead>Title</TableHead>
-                            <TableHead>Type</TableHead>
-                            <TableHead>Capability</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Priority</TableHead>
-                            <TableHead>Due Date</TableHead>
-                            <TableHead>Progress</TableHead>
-                            <TableHead className="text-right">Actions</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {displayRequests.length > 0 ? (
-                            displayRequests.map((request) => (
-                              <TableRow
-                                key={request.id}
-                                className="hover:bg-muted/30 cursor-pointer"
-                                onClick={() => handleOpenRequestSummary(request)}
-                              >
-                                {showCheckboxes && (
-                                  <TableCell onClick={(e) => e.stopPropagation()}>
-                                    <div className="flex items-center justify-center">
-                                      <Checkbox
-                                        checked={selectedRequests.includes(request.id)}
-                                        onCheckedChange={() => toggleSelectRequest(request.id)}
-                                        aria-label={`Select request ${request.id}`}
-                                      />
+                      {loading ? (
+                        <div className="flex justify-center items-center p-12">
+                          <div className="flex flex-col items-center gap-2">
+                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                            <p className="text-muted-foreground">Loading requests...</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <Table>
+                          <TableHeader className="bg-muted/50">
+                            <TableRow>
+                              {showCheckboxes && (
+                                <TableHead className="w-[40px]">
+                                  <div className="flex items-center justify-center">
+                                    <Checkbox
+                                      checked={
+                                        selectedRequests.length === displayRequests.length && displayRequests.length > 0
+                                      }
+                                      onCheckedChange={toggleSelectAll}
+                                      aria-label="Select all requests"
+                                    />
+                                  </div>
+                                </TableHead>
+                              )}
+                              <TableHead className="w-[100px]">ID</TableHead>
+                              <TableHead>Title</TableHead>
+                              <TableHead>Type</TableHead>
+                              <TableHead>Capability</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Priority</TableHead>
+                              <TableHead>Due Date</TableHead>
+                              <TableHead>Progress</TableHead>
+                              <TableHead className="text-right">Actions</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {displayRequests.length > 0 ? (
+                              displayRequests.map((request) => (
+                                <TableRow
+                                  key={request.id}
+                                  className="hover:bg-muted/30 cursor-pointer"
+                                  onClick={() => handleOpenRequestSummary(request)}
+                                >
+                                  {showCheckboxes && (
+                                    <TableCell onClick={(e) => e.stopPropagation()}>
+                                      <div className="flex items-center justify-center">
+                                        <Checkbox
+                                          checked={selectedRequests.includes(request.id)}
+                                          onCheckedChange={() => toggleSelectRequest(request.id)}
+                                          aria-label={`Select request ${request.id}`}
+                                        />
+                                      </div>
+                                    </TableCell>
+                                  )}
+                                  <TableCell className="font-medium">{request.id}</TableCell>
+                                  <TableCell>
+                                    <div className="font-medium">{request.title}</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {request.requester} • {request.department || "N/A"}
                                     </div>
                                   </TableCell>
-                                )}
-                                <TableCell className="font-medium">{request.id}</TableCell>
-                                <TableCell>
-                                  <div className="font-medium">{request.title}</div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {request.requester} • {request.department}
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <Badge variant="outline">{request.type}</Badge>
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-2">
-                                    <CapabilityIcon capability={request.capability} />
-                                    {request.capability}
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <StatusBadge status={request.status} />
-                                </TableCell>
-                                <TableCell>
-                                  <PriorityBadge priority={request.priority} />
-                                </TableCell>
-                                <TableCell>{request.dueDate}</TableCell>
-                                <TableCell>
-                                  <div className="w-full flex items-center gap-2">
-                                    <Progress value={request.progress} className="h-2 w-20" />
-                                    <span className="text-xs">{request.progress}%</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                                  <div className="flex items-center justify-end gap-2">
-                                    {/* Status-specific action buttons */}
-                                    {request.status === "pending" && (
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 rounded-full text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                        title="Start Processing"
-                                      >
-                                        <Clock className="h-4 w-4" />
-                                        <span className="sr-only">Start Processing</span>
-                                      </Button>
-                                    )}
-                                    {request.status === "in-progress" && (
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 rounded-full text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                                        title="Update Progress"
-                                      >
-                                        <BarChart3 className="h-4 w-4" />
-                                        <span className="sr-only">Update Progress</span>
-                                      </Button>
-                                    )}
-                                    {request.status === "completed" && (
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 rounded-full text-green-600 hover:text-green-700 hover:bg-green-50"
-                                        title="View Results"
-                                      >
-                                        <FileText className="h-4 w-4" />
-                                        <span className="sr-only">View Results</span>
-                                      </Button>
-                                    )}
-                                    {request.status === "rejected" && (
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 rounded-full text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                                        title="Resubmit"
-                                      >
-                                        <ArrowUpDown className="h-4 w-4" />
-                                        <span className="sr-only">Resubmit</span>
-                                      </Button>
-                                    )}
-                                    {request.status === "approved" && (
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-8 w-8 rounded-full text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
-                                        title="Schedule"
-                                      >
-                                        <Calendar className="h-4 w-4" />
-                                        <span className="sr-only">Schedule</span>
-                                      </Button>
-                                    )}
-
-                                    {/* Pass/Fail buttons */}
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 rounded-full text-green-600 hover:text-green-700 hover:bg-green-50"
-                                      title="Pass"
-                                    >
-                                      <Check className="h-4 w-4" />
-                                      <span className="sr-only">Pass</span>
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 rounded-full text-red-600 hover:text-red-700 hover:bg-red-50"
-                                      title="Fail"
-                                    >
-                                      <X className="h-4 w-4" />
-                                      <span className="sr-only">Fail</span>
-                                    </Button>
-
-                                    {/* More actions dropdown */}
-                                    <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
+                                  <TableCell>
+                                    <RequestTypeBadge type={request.type} />
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex items-center gap-2">
+                                      <CapabilityIcon capability={request.capability} />
+                                      {request.capability || "-"}
+                                      {request.status.toLowerCase() === "pending receive sample" && request.samplesReceived !== undefined && (
+                                        <span className="text-xs bg-blue-50 px-2 py-0.5 rounded-full text-blue-700 border border-blue-200 ml-1">
+                                          {request.samplesReceived} / {request.samplesTotal} received
+                                        </span>
+                                      )}
+                                    </div>
+                                  </TableCell>
+                                  <TableCell>
+                                    <RequestStatusBadge status={request.status} />
+                                  </TableCell>
+                                  <TableCell>
+                                    <PriorityBadge priority={request.priority} />
+                                  </TableCell>
+                                  <TableCell>{request.dueDate || "-"}</TableCell>
+                                  <TableCell>
+                                    <div className="w-full flex items-center gap-2">
+                                      <Progress value={request.progress} className="h-2 w-20" />
+                                      <span className="text-xs">{request.progress}%</span>
+                                    </div>
+                                  </TableCell>
+                                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                                    <div className="flex items-center justify-end gap-2">
+                                      {/* Status-specific action buttons */}
+                                      {request.status.toLowerCase() === "pending receive sample" && (
                                         <Button
                                           variant="ghost"
                                           size="icon"
-                                          className="h-8 w-8 p-0 rounded-full focus-visible:ring-0 focus-visible:ring-offset-0"
-                                        >
-                                          <MoreHorizontal className="h-4 w-4" />
-                                          <span className="sr-only">Open menu</span>
-                                        </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end" className="w-56">
-                                        <DropdownMenuLabel>Request Actions</DropdownMenuLabel>
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem
+                                          className="h-8 w-8 rounded-full text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                          title="Start Processing"
                                           onClick={(e) => {
                                             e.stopPropagation()
-                                            handleOpenRequestSummary(request)
+                                            handleStatusChange(request.id, "in-progress")
                                           }}
                                         >
-                                          <FileText className="mr-2 h-4 w-4" />
-                                          <span>View Details</span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem>
-                                          <MessageSquare className="mr-2 h-4 w-4" />
-                                          <span>Contact Requester</span>
-                                        </DropdownMenuItem>
-
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuLabel>Testing Status</DropdownMenuLabel>
-                                        <DropdownMenuItem>
-                                          <Clock3 className="mr-2 h-4 w-4 text-yellow-600" />
-                                          <span>Mark as Pending</span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem>
-                                          <Clock className="mr-2 h-4 w-4 text-blue-600" />
-                                          <span>Start Testing</span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem>
-                                          <CheckCircle2 className="mr-2 h-4 w-4 text-green-600" />
-                                          <span>Mark as Completed</span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem>
-                                          <AlertCircle className="mr-2 h-4 w-4 text-orange-600" />
-                                          <span>Flag for Review</span>
-                                        </DropdownMenuItem>
-
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuLabel>Assignment</DropdownMenuLabel>
-                                        <DropdownMenuItem>
-                                          <Users className="mr-2 h-4 w-4" />
-                                          <span>Assign Staff</span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem>
-                                          <Clock className="mr-2 h-4 w-4" />
-                                          <span>Update Due Date</span>
-                                        </DropdownMenuItem>
-                                        <DropdownMenuItem>
-                                          <ArrowUpDown className="mr-2 h-4 w-4" />
-                                          <span>Change Priority</span>
-                                        </DropdownMenuItem>
-
-                                        <DropdownMenuSeparator />
-                                        <DropdownMenuItem className="text-red-600">
-                                          <XCircle className="mr-2 h-4 w-4" />
-                                          <span>Cancel Request</span>
-                                        </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                    </DropdownMenu>
+                                          <Clock className="h-4 w-4" />
+                                          <span className="sr-only">Start Processing</span>
+                                        </Button>
+                                      )}
+                                      {request.status.toLowerCase() === "pending receive sample" && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 rounded-full text-green-600 hover:text-green-700 hover:bg-green-50"
+                                          title="View & Receive Samples"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            setSelectedRequest(request)
+                                            setReceiveDialogOpen(true)
+                                          }}
+                                        >
+                                          <PackageOpen className="h-4 w-4" />
+                                          <span className="sr-only">View & Receive Samples</span>
+                                        </Button>
+                                      )}
+                                      {request.status.toLowerCase() === "in-progress" && (
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-8 w-8 rounded-full text-green-600 hover:text-green-700 hover:bg-green-50"
+                                          title="Mark as Completed"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            handleStatusChange(request.id, "completed")
+                                          }}
+                                        >
+                                          <CheckCircle2 className="h-4 w-4" />
+                                          <span className="sr-only">Mark as Completed</span>
+                                        </Button>
+                                      )}
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-8 w-8 rounded-full"
+                                          >
+                                            <MoreHorizontal className="h-4 w-4" />
+                                            <span className="sr-only">More actions</span>
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end">
+                                          <DropdownMenuItem onClick={(e) => handleOpenRequestDetails(e, request)}>
+                                            <FileText className="h-4 w-4 mr-2" />
+                                            View Details
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem asChild>
+                                            <Link href={`/request/${request.id}`}>
+                                              <FileText className="h-4 w-4 mr-2" />
+                                              Edit Request
+                                            </Link>
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem asChild>
+                                            <Link href={`/results-repository/${request.id}`}>
+                                              <BarChart3 className="h-4 w-4 mr-2" />
+                                              View Results
+                                            </Link>
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem
+                                            className="text-red-600"
+                                            onClick={(e) => {
+                                              e.stopPropagation()
+                                              handleStatusChange(request.id, "rejected")
+                                            }}
+                                          >
+                                            <XCircle className="h-4 w-4 mr-2" />
+                                            Reject Request
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))
+                            ) : (
+                              <TableRow>
+                                <TableCell colSpan={showCheckboxes ? 10 : 9} className="text-center py-10">
+                                  <div className="flex flex-col items-center justify-center gap-2">
+                                    <FileText className="h-8 w-8 text-muted-foreground" />
+                                    <p className="text-lg font-medium">No requests found</p>
+                                    <p className="text-muted-foreground">
+                                      {searchQuery
+                                        ? `No requests match "${searchQuery}"`
+                                        : "Try changing your filters to see more requests"}
+                                    </p>
                                   </div>
                                 </TableCell>
                               </TableRow>
-                            ))
-                          ) : (
-                            <TableRow>
-                              <TableCell
-                                colSpan={showCheckboxes ? 10 : 9}
-                                className="text-center py-6 text-muted-foreground"
-                              >
-                                No requests found for the selected filters.
-                              </TableCell>
-                            </TableRow>
-                          )}
-                        </TableBody>
-                      </Table>
+                            )}
+                          </TableBody>
+                        </Table>
+                      )}
+
+                      {/* Pagination */}
+                      {displayRequests.length > 0 && totalPages > 1 && (
+                        <div className="py-4 px-6 border-t flex items-center justify-between">
+                          <div className="text-sm text-muted-foreground">
+                            Showing {(currentPage - 1) * pageSize + 1} to{" "}
+                            {Math.min(currentPage * pageSize, totalCount)} of {totalCount} requests
+                          </div>
+                          <Pagination>
+                            <PaginationContent>
+                              <PaginationItem>
+                                <PaginationPrevious
+                                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                                  disabled={currentPage === 1}
+                                />
+                              </PaginationItem>
+
+                              {/* Generate page numbers */}
+                              {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+                                let pageNumber;
+
+                                // Always show page 1
+                                if (i === 0 && currentPage <= 3) {
+                                  pageNumber = i + 1;
+                                }
+                                // Always show the last page
+                                else if (i === 4 && currentPage > totalPages - 3) {
+                                  pageNumber = totalPages;
+                                }
+                                // Show ellipsis
+                                else if (
+                                  (i === 1 && currentPage > 3) ||
+                                  (i === 3 && currentPage < totalPages - 2)
+                                ) {
+                                  return (
+                                    <PaginationItem key={`ellipsis-${i}`}>
+                                      <span className="p-2">...</span>
+                                    </PaginationItem>
+                                  );
+                                }
+                                // Show first and last pages
+                                else if (i === 0 && currentPage > 3) {
+                                  pageNumber = 1;
+                                } else if (i === 4 && currentPage <= totalPages - 3) {
+                                  pageNumber = totalPages;
+                                } else {
+                                  // Otherwise show current page and 2 pages before/after
+                                  pageNumber = currentPage - 2 + i;
+                                }
+
+                                return (
+                                  <PaginationItem key={pageNumber}>
+                                    <PaginationLink
+                                      onClick={() => setCurrentPage(pageNumber)}
+                                      isActive={currentPage === pageNumber}
+                                    >
+                                      {pageNumber}
+                                    </PaginationLink>
+                                  </PaginationItem>
+                                );
+                              })}
+
+                              <PaginationItem>
+                                <PaginationNext
+                                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                                  disabled={currentPage === totalPages}
+                                />
+                              </PaginationItem>
+                            </PaginationContent>
+                          </Pagination>
+                        </div>
+                      )}
                     </TabsContent>
-                    <TabsContent value="calendar" className="m-0">
-                      <div className="p-4 border-b">
-                        <div className="flex items-center justify-between mb-4">
-                          <div className="flex items-center gap-2">
-                            <Button variant="outline" size="sm" onClick={goToPreviousMonth}>
-                              <ChevronLeft className="h-4 w-4" />
-                              <span className="sr-only">Previous month</span>
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={goToNextMonth}>
-                              <ChevronRight className="h-4 w-4" />
-                              <span className="sr-only">Next month</span>
-                            </Button>
-                            <Button variant="outline" size="sm" onClick={goToToday}>
-                              Today
-                            </Button>
-                            <h3 className="text-lg font-semibold ml-2">
-                              {currentMonth.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
-                            </h3>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1">
-                              <div className="w-3 h-3 rounded-full bg-yellow-300"></div>
-                              <span className="text-xs">Pending</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <div className="w-3 h-3 rounded-full bg-blue-300"></div>
-                              <span className="text-xs">In Progress</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <div className="w-3 h-3 rounded-full bg-green-300"></div>
-                              <span className="text-xs">Completed</span>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <div className="w-3 h-3 rounded-full bg-red-300"></div>
-                              <span className="text-xs">Rejected</span>
-                            </div>
-                          </div>
-                        </div>
 
-                        <div className="grid grid-cols-7 gap-1 mb-2">
-                          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                            <div key={day} className="text-center font-medium text-sm py-2">
-                              {day}
-                            </div>
-                          ))}
-                        </div>
-
-                        <div className="grid grid-cols-7 gap-1">
-                          {calendarWeeks.map((week, weekIndex) => (
-                            <React.Fragment key={weekIndex}>
-                              {week.map((day, dayIndex) => (
-                                <div
-                                  key={`${weekIndex}-${dayIndex}`}
-                                  className={`min-h-[120px] border rounded-md p-1 ${
-                                    day.day === null
-                                      ? "bg-gray-50 opacity-50"
-                                      : day.isToday
-                                        ? "bg-blue-50 border-blue-200"
-                                        : "bg-white"
-                                  }`}
-                                >
-                                  {day.day !== null && (
-                                    <>
-                                      <div className="text-right text-sm font-medium mb-1">{day.day}</div>
-                                      <div className="space-y-1 overflow-y-auto max-h-[90px]">
-                                        {day.requests &&
-                                          day.requests.map((request) => (
-                                            <div
-                                              key={request.id}
-                                              className={`text-xs p-1 rounded border ${getStatusColor(
-                                                request.status,
-                                              )} ${getPriorityColor(request.priority)} cursor-pointer hover:shadow-sm`}
-                                              onClick={() => handleOpenRequestSummary(request)}
-                                            >
-                                              <div className="font-medium truncate">{request.title}</div>
-                                              <div className="flex items-center justify-between">
-                                                <span>{request.id}</span>
-                                                <Badge variant="outline" className="text-[10px] h-4 px-1">
-                                                  {request.type}
-                                                </Badge>
-                                              </div>
-                                            </div>
-                                          ))}
-                                      </div>
-                                    </>
-                                  )}
-                                </div>
-                              ))}
-                            </React.Fragment>
-                          ))}
-                        </div>
+                    <TabsContent value="calendar" className="m-0 p-6">
+                      <div className="flex flex-col items-center justify-center py-12 bg-muted/10 rounded-md">
+                        <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+                        <p className="text-lg font-medium">Calendar View</p>
+                        <p className="text-muted-foreground">Calendar view is under development</p>
                       </div>
                     </TabsContent>
                   </Tabs>
                 </CardContent>
-                <CardFooter className="flex items-center justify-between border-t p-4">
-                  <div className="text-sm text-muted-foreground">
-                    Showing {displayRequests.length} of {requests.length} requests
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" disabled={displayRequests.length === 0}>
-                      Previous
-                    </Button>
-                    <Button variant="outline" size="sm" disabled={displayRequests.length === 0}>
-                      Next
-                    </Button>
-                  </div>
-                </CardFooter>
               </Card>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Request Summary Dialog */}
-      <RequestSummaryDialog
-        request={selectedRequest}
-        open={summaryDialogOpen}
-        onOpenChange={setSummaryDialogOpen}
-        onStatusChange={handleStatusChange}
-      />
+      {/* Request summary dialog */}
+      {selectedRequest && (
+        <RequestSummaryDialog
+          request={selectedRequest}
+          open={summaryDialogOpen}
+          onOpenChange={setSummaryDialogOpen}
+          onStatusChange={handleStatusChange}
+        />
+      )}
+
+      {/* Sample receive dialog */}
+      {selectedRequest && (
+        <SampleReceiveDialog
+          requestId={selectedRequest.id}
+          open={receiveDialogOpen}
+          onOpenChange={setReceiveDialogOpen}
+          onSamplesReceived={handleStatusChange}
+        />
+      )}
+
+      {/* Request details view dialog */}
+      {selectedRequest && (
+        <RequestViewDetailsDialog
+          requestId={selectedRequest.id}
+          open={viewDetailsDialogOpen}
+          onOpenChange={setViewDetailsDialogOpen}
+        />
+      )}
     </div>
   )
 }
-

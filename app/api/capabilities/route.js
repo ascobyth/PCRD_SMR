@@ -1,60 +1,54 @@
 import { NextResponse } from 'next/server';
-import dbConnect from '@/lib/mongoose';
-import Capability from '@/models/Capability';
+import connectToDatabase, { mongoose } from '@/lib/db';
+
+// Use the Capability model
+const Capability = mongoose.models.Capability || require('@/models/Capability');
 
 export async function GET() {
   try {
-    await dbConnect();
-    const capabilities = await Capability.find({})
-      .populate({
-        path: 'capHeadGroup',
-        select: 'name username email position department division'
-      })
-      .populate('locationId') // Populate the locationId field
-      .sort({ capabilityName: 1 });
+    await connectToDatabase();
+    const capabilities = await Capability.find({});
+    
+    // Check if capabilities exist, if not, try to create default ones
+    if (capabilities.length === 0) {
+      console.log('No capabilities found. Redirecting to seed-capabilities endpoint...');
+      
+      // Call the seed-capabilities endpoint
+      try {
+        const seedResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL || ''}/api/seed-capabilities`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (seedResponse.ok) {
+          const seedResult = await seedResponse.json();
+          console.log('Successfully seeded capabilities');
+          
+          // Return the seeded capabilities
+          return NextResponse.json({ 
+            success: true, 
+            data: seedResult.data,
+            message: 'Default capabilities were created'
+          }, { status: 200 });
+        } else {
+          console.error('Failed to seed capabilities');
+        }
+      } catch (seedError) {
+        console.error('Error calling seed-capabilities endpoint:', seedError);
+      }
+      
+      // Try fetching capabilities again in case seeding worked
+      const newCapabilities = await Capability.find({});
+      return NextResponse.json({ success: true, data: newCapabilities }, { status: 200 });
+    }
 
     return NextResponse.json({ success: true, data: capabilities }, { status: 200 });
   } catch (error) {
     console.error('Error fetching capabilities:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to fetch capabilities' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(request) {
-  try {
-    await dbConnect();
-
-    const body = await request.json();
-
-    // Create a new capability
-    const capability = await Capability.create(body);
-
-    return NextResponse.json({ success: true, data: capability }, { status: 201 });
-  } catch (error) {
-    console.error('Error creating capability:', error);
-
-    // Handle validation errors
-    if (error.name === 'ValidationError') {
-      const validationErrors = Object.values(error.errors).map(err => err.message);
-      return NextResponse.json(
-        { success: false, error: validationErrors.join(', ') },
-        { status: 400 }
-      );
-    }
-
-    // Handle duplicate key errors
-    if (error.code === 11000) {
-      return NextResponse.json(
-        { success: false, error: 'A capability with that name already exists' },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json(
-      { success: false, error: 'Failed to create capability' },
       { status: 500 }
     );
   }

@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
 interface AutocompleteInputProps {
-  options: { value: string; label: string }[]
+  options?: { value: string; label: string }[]
+  suggestions?: { id: string; name: string }[] // Added for backward compatibility
   value: string
   onChange: (value: string) => void
   placeholder?: string
@@ -16,7 +17,8 @@ interface AutocompleteInputProps {
 }
 
 export function AutocompleteInput({
-  options,
+  options: propOptions,
+  suggestions,
   value,
   onChange,
   placeholder = "Search...",
@@ -24,6 +26,19 @@ export function AutocompleteInput({
   allowCustomValue = true,
   id,
 }: AutocompleteInputProps) {
+  // Convert suggestions to options format if provided
+  const options = React.useMemo(() => {
+    if (propOptions) return propOptions
+    
+    if (suggestions) {
+      return suggestions.map(item => ({
+        value: item.id,
+        label: item.name
+      }))
+    }
+    
+    return []
+  }, [propOptions, suggestions])
   const [inputValue, setInputValue] = React.useState<string>(value || "")
   const [isOpen, setIsOpen] = React.useState<boolean>(false)
   const [focused, setFocused] = React.useState<boolean>(false)
@@ -32,13 +47,13 @@ export function AutocompleteInput({
 
   // Update input value when the external value changes
   React.useEffect(() => {
-    const selectedOption = options.find((option) => option.value === value)
+    const selectedOption = options?.find((option) => option.value === value)
     setInputValue(selectedOption ? selectedOption.label : value || "")
   }, [value, options])
 
   // Filter options based on input
   const filteredOptions = React.useMemo(() => {
-    if (!inputValue.trim()) return options
+    if (!inputValue.trim() || !options) return options || []
 
     return options.filter(
       (option) =>
@@ -62,7 +77,7 @@ export function AutocompleteInput({
         if (
           allowCustomValue &&
           inputValue.trim() &&
-          !options.some(
+          !options?.some(
             (option) =>
               option.label.toLowerCase() === inputValue.toLowerCase() ||
               option.value.toLowerCase() === inputValue.toLowerCase(),

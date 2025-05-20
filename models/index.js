@@ -5,11 +5,14 @@ const TestingMethod = require('./TestingMethod');
 const Equipment = require('./Equipment');
 const Location = require('./Location');
 const Io = require('./Io');
-const Request = require('./Request');
+const RequestList = require('./RequestList');
 const TestingSample = require('./TestingSample');
 const SampleCommercial = require('./SampleCommercial');
 const AppTech = require('./AppTech');
 const PlantReactor = require('./PlantReactor');
+const ErList = require('./ErList');
+const TestingERList = require('./TestingERList');
+const AsrList = require('./AsrList');
 
 module.exports = {
   User,
@@ -19,9 +22,12 @@ module.exports = {
   Equipment,
   Location,
   Io,
-  Request,
+  RequestList,
   TestingSample,
   SampleCommercial,
   AppTech,
-  PlantReactor
+  PlantReactor,
+  ErList,
+  TestingERList,
+  AsrList
 };

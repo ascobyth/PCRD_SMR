@@ -146,10 +146,17 @@ export default function RequestManagementPage() {
         page: currentPage
       });
 
-      const response = await fetch(
-        `/api/requests/manage?status=${encodeURIComponent(statusFilter)}&priority=${priorityFilter}&capability=${capabilityFilter}&type=${activeTab}&search=${encodeURIComponent(searchQuery)}&page=${currentPage}&limit=${pageSize}`
-      )
-      const data = await response.json()
+        const [listRes, countRes] = await Promise.all([
+          fetch(
+            `/api/requests/manage?status=${encodeURIComponent(statusFilter)}&priority=${priorityFilter}&capability=${capabilityFilter}&type=${activeTab}&search=${encodeURIComponent(searchQuery)}&page=${currentPage}&limit=${pageSize}`
+          ),
+          // Fetch capability counts ignoring the capability filter so buttons remain accurate
+          fetch(
+            `/api/requests/manage?status=${encodeURIComponent(statusFilter)}&priority=${priorityFilter}&capability=all&type=${activeTab}&search=${encodeURIComponent(searchQuery)}&page=1&limit=1`
+          )
+        ])
+        const data = await listRes.json()
+        const countsData = await countRes.json()
 
       if (data.success) {
         // Get basic request data
@@ -197,14 +204,14 @@ export default function RequestManagementPage() {
           setTypeCounts(data.typeCounts)
         }
 
-        // Update capabilities data
-        if (data.capabilities) {
-          setCapabilities(data.capabilities)
+        // Update capabilities data from the counts response to always include all
+        if (countsData.capabilities) {
+          setCapabilities(countsData.capabilities)
         }
 
-        // Update capability counts
-        if (data.capabilityCounts) {
-          setCapabilityCounts(data.capabilityCounts)
+        // Update capability counts from the counts response
+        if (countsData.capabilityCounts) {
+          setCapabilityCounts(countsData.capabilityCounts)
         }
       } else {
         console.error("Failed to fetch requests:", data.error)
@@ -221,11 +228,12 @@ export default function RequestManagementPage() {
   // Fetch status counts
   const fetchStatusCounts = async () => {
     try {
-      const pendingResponse = await fetch(`/api/requests/manage?status=pending receive sample&type=${activeTab}&limit=1`)
-      const inProgressResponse = await fetch(`/api/requests/manage?status=in-progress&type=${activeTab}&limit=1`)
-      const completedResponse = await fetch(`/api/requests/manage?status=completed&type=${activeTab}&limit=1`)
-      const rejectedResponse = await fetch(`/api/requests/manage?status=rejected&type=${activeTab}&limit=1`)
-      const terminatedResponse = await fetch(`/api/requests/manage?status=terminated&type=${activeTab}&limit=1`)
+        const query = `priority=${priorityFilter}&capability=${capabilityFilter}&search=${encodeURIComponent(searchQuery)}&type=${activeTab}&limit=1`
+        const pendingResponse = await fetch(`/api/requests/manage?status=pending receive sample&${query}`)
+        const inProgressResponse = await fetch(`/api/requests/manage?status=in-progress&${query}`)
+        const completedResponse = await fetch(`/api/requests/manage?status=completed&${query}`)
+        const rejectedResponse = await fetch(`/api/requests/manage?status=rejected&${query}`)
+        const terminatedResponse = await fetch(`/api/requests/manage?status=terminated&${query}`)
 
       const pendingData = await pendingResponse.json()
       const inProgressData = await inProgressResponse.json()

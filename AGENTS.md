@@ -350,3 +350,8 @@ This implementation allows users to submit equipment reservation requests, which
 - User Concerned: request-management
 - Issue: RequestViewDetailsDialog crashed due to missing Progress import
 - Progress: Imported Progress component from ui/progress to resolve ReferenceError.
+
+## Update - Pagination Key Fix
+- User Concerned: request-management
+- Issue: Duplicate keys in pagination causing React warning
+- Progress: Rewrote page number generation to ensure unique keys.

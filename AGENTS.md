@@ -380,3 +380,8 @@ This implementation allows users to submit equipment reservation requests, which
 - User Concerned: request-management
 - Issue: Request Management page heading differed from homepage
 - Progress: Updated heading text in `/request-management` page to match the homepage heading.
+
+## Update - Request vs Testing View
+- User Concerned: request-management
+- Issue: Needed ability to switch table between request list and testing list
+- Progress: Added `tableView` toggle with API `/api/testing-lists/manage` and updated page to support both views.

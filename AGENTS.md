@@ -370,3 +370,8 @@ This implementation allows users to submit equipment reservation requests, which
 - User Concerned: request-management
 - Issue: Capability and Status filter counters did not update correctly with active filters
 - Progress: Modified Request Management page to fetch capability counts separately and include all filter parameters when retrieving status counts.
+
+## Update - Receive All Status Fix
+- User Concerned: request-management
+- Issue: "Receive All" did not transition samples to the correct status
+- Progress: Updated manage and receive API routes to set `in-progress` status for all samples when requests are received.

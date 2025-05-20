@@ -41,24 +41,24 @@ export async function PUT(request: Request) {
     
     // Case 1: Receive all samples at once
     if (receiveAll) {
-      // Update all samples to "Received" status
+      // Update all samples to "in-progress" status
       const updateResult = await TestingSampleList.updateMany(
-        { requestNumber: requestId, sampleStatus: { $ne: "Received" } },
-        { 
-          $set: { 
-            sampleStatus: "Received",
+        { requestNumber: requestId, sampleStatus: { $ne: "in-progress" } },
+        {
+          $set: {
+            sampleStatus: "in-progress",
             receiveDate: new Date(),
             receiveBy: "System", // Ideally should be from auth
             updatedAt: new Date()
-          } 
+          }
         }
       );
       
       console.log(`Updated ${updateResult.modifiedCount} samples to Received`);
       
-      updatedSamples = await TestingSampleList.find({ 
-        requestNumber: requestId, 
-        sampleStatus: "Received" 
+      updatedSamples = await TestingSampleList.find({
+        requestNumber: requestId,
+        sampleStatus: "in-progress"
       });
       
       receivedSamplesCount = updatedSamples.length;
@@ -80,11 +80,11 @@ export async function PUT(request: Request) {
       console.log(`Updating ${samples.length} specific samples`);
       
       // Update only the selected samples
-      const updatePromises = samples.map(sampleId => 
+      const updatePromises = samples.map(sampleId =>
         TestingSampleList.findByIdAndUpdate(
           sampleId,
           {
-            sampleStatus: "Received",
+            sampleStatus: "in-progress",
             receiveDate: new Date(),
             receiveBy: "System", // Ideally should be from auth
             updatedAt: new Date()
@@ -98,7 +98,7 @@ export async function PUT(request: Request) {
       // Count samples that have been received
       const receivedSamples = await TestingSampleList.find({
         requestNumber: requestId,
-        sampleStatus: { $in: ["Received", "In Queue", "In Testing", "Testing Completed", "Result Analysis", "Verified"] }
+        sampleStatus: "in-progress"
       });
       
       receivedSamplesCount = receivedSamples.length;

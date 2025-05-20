@@ -778,36 +778,6 @@ export default function RequestManagementPage() {
                 </CardContent>
               </Card>
 
-              {viewMode === "samples" && (
-                <Card>
-                  <CardHeader className="py-3">
-                    <CardTitle className="text-lg font-medium">Equipment Filter</CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-3 space-y-2">
-                    <AutocompleteInput
-                      suggestions={equipmentOptions}
-                      value={equipmentFilter === "all" ? "" : equipmentFilter}
-                      onChange={(val) => {
-                        setEquipmentFilter(val || "all")
-                        setCurrentPage(1)
-                      }}
-                      placeholder="Search equipment..."
-                    />
-                    {equipmentFilter !== "all" && (
-                      <Button
-                        variant="outline"
-                        className="w-full"
-                        onClick={() => {
-                          setEquipmentFilter("all")
-                          setCurrentPage(1)
-                        }}
-                      >
-                        Clear Filter
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              )}
 
               <Card>
                 <CardHeader className="py-3">
@@ -864,45 +834,73 @@ export default function RequestManagementPage() {
                 <CardContent className="p-0">
                   <Tabs defaultValue="requests" value={viewMode} onValueChange={setViewMode as any} className="w-full">
                     <div className="flex justify-between items-center px-6 py-2 border-b">
-                      <Select
-                        value={viewMode}
-                        onValueChange={(val) => {
-                          setViewMode(val as "requests" | "samples")
-                          setCurrentPage(1)
-                        }}
-                      >
-                        <SelectTrigger className="w-[220px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectLabel>View Mode</SelectLabel>
-                            <SelectItem value="requests">Request View</SelectItem>
-                            <SelectItem value="samples">Testing Sample View</SelectItem>
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                      <Select
-                        defaultValue="all"
-                        value={activeTab}
-                        onValueChange={(value) => {
-                          setActiveTab(value)
-                          setCurrentPage(1)
-                        }}
-                      >
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Request Type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectLabel>Request Type</SelectLabel>
-                            <SelectItem value="all">All Types ({typeCounts.ntr + typeCounts.asr + typeCounts.er})</SelectItem>
-                            <SelectItem value="ntr">NTR ({typeCounts.ntr})</SelectItem>
-                            <SelectItem value="asr">ASR ({typeCounts.asr})</SelectItem>
-                            <SelectItem value="er">ER ({typeCounts.er})</SelectItem>
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={viewMode}
+                          onValueChange={(val) => {
+                            setViewMode(val as "requests" | "samples")
+                            setCurrentPage(1)
+                          }}
+                        >
+                          <SelectTrigger className="w-[220px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel>View Mode</SelectLabel>
+                              <SelectItem value="requests">Request View</SelectItem>
+                              <SelectItem value="samples">Testing Sample View</SelectItem>
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                        <Select
+                          defaultValue="all"
+                          value={activeTab}
+                          onValueChange={(value) => {
+                            setActiveTab(value)
+                            setCurrentPage(1)
+                          }}
+                        >
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue placeholder="Request Type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel>Request Type</SelectLabel>
+                              <SelectItem value="all">All Types ({typeCounts.ntr + typeCounts.asr + typeCounts.er})</SelectItem>
+                              <SelectItem value="ntr">NTR ({typeCounts.ntr})</SelectItem>
+                              <SelectItem value="asr">ASR ({typeCounts.asr})</SelectItem>
+                              <SelectItem value="er">ER ({typeCounts.er})</SelectItem>
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {viewMode === "samples" && (
+                        <div className="flex items-center gap-2">
+                          <AutocompleteInput
+                            suggestions={equipmentOptions}
+                            value={equipmentFilter === "all" ? "" : equipmentFilter}
+                            onChange={(val) => {
+                              setEquipmentFilter(val || "all")
+                              setCurrentPage(1)
+                            }}
+                            placeholder="Search equipment..."
+                            className="w-64"
+                          />
+                          {equipmentFilter !== "all" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEquipmentFilter("all")
+                                setCurrentPage(1)
+                              }}
+                            >
+                              Clear
+                            </Button>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <TabsContent value="requests" className="m-0">
                       {/* Batch action buttons - only show when filtering by pending, in-progress, or completed */}

@@ -335,3 +335,8 @@ The Equipment Reservation (ER) feature has been implemented with the following c
 - Fixed TypeError in AutocompleteInput component by making it compatible with both options and suggestions props and adding null safety checks
 
 This implementation allows users to submit equipment reservation requests, which are saved to the database with proper request numbers and can be viewed in the confirmation page.
+
+## Update - Merge Conflict Fix
+- User Concerned: request-management
+- Issue: Merge conflict markers causing compilation failure in page.tsx
+- Progress: Resolved conflict markers and cleaned up code.

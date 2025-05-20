@@ -365,3 +365,8 @@ This implementation allows users to submit equipment reservation requests, which
 - User Concerned: request-management
 - Issue: Need ability to delete requests from all related collections
 - Progress: Added Delete Request menu action and API to remove requests from RequestList, AsrList, ErList, and TestingSampleList.
+
+## Update - Filter Count Fix
+- User Concerned: request-management
+- Issue: Capability and Status filter counters did not update correctly with active filters
+- Progress: Modified Request Management page to fetch capability counts separately and include all filter parameters when retrieving status counts.

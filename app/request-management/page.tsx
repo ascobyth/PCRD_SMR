@@ -92,6 +92,7 @@ const RequestTypeBadge = ({ type }: { type: string }) => {
 export default function RequestManagementPage() {
   const [activeTab, setActiveTab] = useState("all")
   const [activeView, setActiveView] = useState("list")
+  const [tableView, setTableView] = useState("request")
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
   const [capabilityFilter, setCapabilityFilter] = useState("all")
@@ -118,6 +119,7 @@ export default function RequestManagementPage() {
 
   // State for storing requests from API
   const [requests, setRequests] = useState<any[]>([])
+  const [testingLists, setTestingLists] = useState<any[]>([])
 
   // Capabilities from API
   const [capabilities, setCapabilities] = useState<any[]>([])
@@ -225,6 +227,29 @@ export default function RequestManagementPage() {
     }
   }
 
+  const fetchTestingLists = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(
+        `/api/testing-lists/manage?status=${encodeURIComponent(statusFilter)}&capability=${capabilityFilter}&search=${encodeURIComponent(searchQuery)}&page=${currentPage}&limit=${pageSize}`
+      )
+      const data = await res.json()
+      if (data.success) {
+        setTestingLists(data.data || [])
+        setTotalPages(data.pagination.pages || 1)
+        setTotalCount(data.pagination.total || 0)
+      } else {
+        console.error("Failed to fetch testing lists:", data.error)
+        toast.error("Failed to fetch testing lists")
+      }
+    } catch (error) {
+      console.error("Error fetching testing lists:", error)
+      toast.error("Error fetching testing lists")
+    } finally {
+      setLoading(false)
+    }
+  }
+
   // Fetch status counts
   const fetchStatusCounts = async () => {
     try {
@@ -261,23 +286,32 @@ export default function RequestManagementPage() {
 
   // Fetch data when filters change
   useEffect(() => {
-    fetchRequests()
-    fetchStatusCounts()
-  }, [statusFilter, priorityFilter, capabilityFilter, activeTab, currentPage, pageSize])
+    if (tableView === "request") {
+      fetchRequests()
+      fetchStatusCounts()
+    } else {
+      fetchTestingLists()
+    }
+  }, [statusFilter, priorityFilter, capabilityFilter, activeTab, currentPage, pageSize, tableView])
 
   // Debounce search query
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      fetchRequests()
+      if (tableView === "request") {
+        fetchRequests()
+        fetchStatusCounts()
+      } else {
+        fetchTestingLists()
+      }
     }, 500)
     return () => clearTimeout(timeoutId)
-  }, [searchQuery])
+  }, [searchQuery, tableView])
 
   // Filter requests based on active tab (request type)
-  const displayRequests = requests
+  const displayRequests = tableView === "request" ? requests : testingLists
 
   // Check if we should show checkboxes (when filtering by pending, in-progress, or completed)
-  const showCheckboxes = statusFilter === "pending receive sample" || statusFilter === "in-progress" || statusFilter === "completed"
+  const showCheckboxes = tableView === "request" && (statusFilter === "pending receive sample" || statusFilter === "in-progress" || statusFilter === "completed")
 
   // Handle checkbox selection
   const toggleSelectRequest = (id: string) => {
@@ -863,10 +897,16 @@ export default function RequestManagementPage() {
                 <CardContent className="p-0">
                   <Tabs defaultValue="list" value={activeView} onValueChange={setActiveView} className="w-full">
                     <div className="flex justify-between items-center px-6 py-2 border-b">
-                      <TabsList className="grid w-[200px] grid-cols-2">
-                        <TabsTrigger value="list">List</TabsTrigger>
-                        <TabsTrigger value="calendar">Calendar</TabsTrigger>
-                      </TabsList>
+                      <div className="flex gap-2">
+                        <TabsList className="grid w-[200px] grid-cols-2">
+                          <TabsTrigger value="list">List</TabsTrigger>
+                          <TabsTrigger value="calendar">Calendar</TabsTrigger>
+                        </TabsList>
+                        <TabsList className="grid w-[220px] grid-cols-2 ml-4" value={tableView} onValueChange={(v) => { setTableView(v); setCurrentPage(1); }}>
+                          <TabsTrigger value="request">Request View</TabsTrigger>
+                          <TabsTrigger value="testing">Testing List</TabsTrigger>
+                        </TabsList>
+                      </div>
                       <Select
                         defaultValue="all"
                         value={activeTab}
@@ -1017,7 +1057,9 @@ export default function RequestManagementPage() {
                               <TableHead>Priority</TableHead>
                               <TableHead>Due Date</TableHead>
                               <TableHead>Progress</TableHead>
-                              <TableHead className="text-right">Actions</TableHead>
+                              {tableView === "request" && (
+                                <TableHead className="text-right">Actions</TableHead>
+                              )}
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -1085,6 +1127,7 @@ export default function RequestManagementPage() {
                                       <span className="text-xs">{request.progress}%</span>
                                     </div>
                                   </TableCell>
+                                  {tableView === "request" && (
                                   <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                                     <div className="flex items-center justify-end gap-2">
                                       {/* Status-specific action buttons */}
@@ -1175,17 +1218,18 @@ export default function RequestManagementPage() {
                                             onClick={(e) => handleDeleteRequest(e, request)}
                                           >
                                             <Trash2 className="h-4 w-4 mr-2" />
-                                            Delete Request
-                                          </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                      </DropdownMenu>
-                                    </div>
+                                      Delete Request
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
                                   </TableCell>
+                                  )}
                                 </TableRow>
                               ))
                             ) : (
                               <TableRow>
-                                <TableCell colSpan={showCheckboxes ? 10 : 9} className="text-center py-10">
+                                <TableCell colSpan={showCheckboxes ? (tableView === "request" ? 10 : 9) : (tableView === "request" ? 9 : 8)} className="text-center py-10">
                                   <div className="flex flex-col items-center justify-center gap-2">
                                     <FileText className="h-8 w-8 text-muted-foreground" />
                                     <p className="text-lg font-medium">No requests found</p>
@@ -1207,7 +1251,7 @@ export default function RequestManagementPage() {
                         <div className="py-4 px-6 border-t flex items-center justify-between">
                           <div className="text-sm text-muted-foreground">
                             Showing {(currentPage - 1) * pageSize + 1} to{" "}
-                            {Math.min(currentPage * pageSize, totalCount)} of {totalCount} requests
+                            {Math.min(currentPage * pageSize, totalCount)} of {totalCount} {tableView === "request" ? "requests" : "tests"}
                           </div>
                           <Pagination>
                             <PaginationContent>

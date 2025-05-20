@@ -365,3 +365,7 @@ This implementation allows users to submit equipment reservation requests, which
 - User Concerned: request-management
 - Issue: Dropdown view switch, equipment filtering, and table updates requested
 - Progress: Added dropdown selector for views, added equipment filter and column, moved Request # column, removed Sample ID, and updated `/api/testing-samples` endpoint.
+## Update - Equipment Filter Position
+- User Concerned: request-management
+- Issue: Equipment filter needed at top of table
+- Progress: Moved Equipment Filter from sidebar to table header in Testing Sample view.

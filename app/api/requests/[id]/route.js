@@ -5,6 +5,8 @@ import mongoose from 'mongoose';
 // Import models directly from the models directory
 const RequestList = mongoose.models.RequestList || require('@/models/RequestList');
 const ErList = mongoose.models.ErList || require('@/models/ErList');
+const AsrList = mongoose.models.AsrList || require('@/models/AsrList');
+const TestingSampleList = mongoose.models.TestingSampleList || require('@/models/TestingSampleList');
 
 export async function GET(request, { params }) {
   try {
@@ -93,13 +95,38 @@ export async function DELETE(request, { params }) {
     await dbConnect();
 
     const { id } = params;
-    
-    // Try to delete from RequestList first
-    let deletedRequest = await RequestList.findByIdAndDelete(id);
-    
-    // If not found, try in ErList
+
+    let deletedRequest = null;
+    let requestNumber = null;
+
+    const isObjectId = mongoose.Types.ObjectId.isValid(id);
+
+    if (isObjectId) {
+      deletedRequest = await RequestList.findByIdAndDelete(id);
+      if (deletedRequest) requestNumber = deletedRequest.requestNumber;
+      if (!deletedRequest) {
+        deletedRequest = await AsrList.findByIdAndDelete(id);
+        if (deletedRequest) requestNumber = deletedRequest.asrNumber;
+      }
+      if (!deletedRequest) {
+        deletedRequest = await ErList.findByIdAndDelete(id);
+        if (deletedRequest) requestNumber = deletedRequest.requestNumber;
+      }
+    }
+
     if (!deletedRequest) {
-      deletedRequest = await ErList.findByIdAndDelete(id);
+      deletedRequest = await RequestList.findOneAndDelete({ requestNumber: id });
+      if (deletedRequest) requestNumber = deletedRequest.requestNumber;
+    }
+
+    if (!deletedRequest) {
+      deletedRequest = await AsrList.findOneAndDelete({ asrNumber: id });
+      if (deletedRequest) requestNumber = deletedRequest.asrNumber;
+    }
+
+    if (!deletedRequest) {
+      deletedRequest = await ErList.findOneAndDelete({ requestNumber: id });
+      if (deletedRequest) requestNumber = deletedRequest.requestNumber;
     }
 
     if (!deletedRequest) {
@@ -107,6 +134,14 @@ export async function DELETE(request, { params }) {
         { success: false, error: 'Request not found' },
         { status: 404 }
       );
+    }
+
+    if (requestNumber) {
+      try {
+        await TestingSampleList.deleteMany({ requestNumber });
+      } catch (err) {
+        console.error('Error deleting samples:', err);
+      }
     }
 
     return NextResponse.json({ success: true, data: {} }, { status: 200 });

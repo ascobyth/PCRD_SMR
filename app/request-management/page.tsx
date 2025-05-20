@@ -31,6 +31,7 @@ import {
   RefreshCw,
   Loader2,
   PackageOpen,
+  Trash2,
 } from "lucide-react"
 
 // Import Capability related data
@@ -399,6 +400,46 @@ export default function RequestManagementPage() {
       }
     } catch (err) {
       toast.error("Failed to reject request")
+    }
+  }
+
+  const handleDeleteRequest = async (e: React.MouseEvent, request: any) => {
+    e.stopPropagation()
+    const confirmed = window.confirm('Delete this request?')
+    if (!confirmed) return
+    try {
+      const response = await fetch(`/api/requests/${request.id}`, { method: 'DELETE' })
+      const data = await response.json()
+      if (data.success) {
+        setRequests(prev => prev.filter(r => r.id !== request.id))
+        setTotalCount(prev => Math.max(0, prev - 1))
+
+        if (request.status.toLowerCase().includes('pending')) {
+          setPendingCount(prev => Math.max(0, prev - 1))
+        } else if (request.status.toLowerCase().includes('in-progress')) {
+          setInProgressCount(prev => Math.max(0, prev - 1))
+        } else if (request.status.toLowerCase().includes('completed')) {
+          setCompletedCount(prev => Math.max(0, prev - 1))
+        } else if (request.status.toLowerCase().includes('rejected')) {
+          setRejectedCount(prev => Math.max(0, prev - 1))
+        } else if (request.status.toLowerCase().includes('terminated')) {
+          setTerminatedCount(prev => Math.max(0, prev - 1))
+        }
+
+        if (request.type === 'NTR') {
+          setTypeCounts(prev => ({ ...prev, ntr: Math.max(0, prev.ntr - 1) }))
+        } else if (request.type === 'ASR') {
+          setTypeCounts(prev => ({ ...prev, asr: Math.max(0, prev.asr - 1) }))
+        } else if (request.type === 'ER') {
+          setTypeCounts(prev => ({ ...prev, er: Math.max(0, prev.er - 1) }))
+        }
+
+        toast.success('Request deleted')
+      } else {
+        toast.error(data.error || 'Failed to delete request')
+      }
+    } catch (err) {
+      toast.error('Failed to delete request')
     }
   }
 
@@ -1119,6 +1160,14 @@ export default function RequestManagementPage() {
                                           >
                                             <XCircle className="h-4 w-4 mr-2" />
                                             Reject Request
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem
+                                            className="text-red-600"
+                                            onClick={(e) => handleDeleteRequest(e, request)}
+                                          >
+                                            <Trash2 className="h-4 w-4 mr-2" />
+                                            Delete Request
                                           </DropdownMenuItem>
                                         </DropdownMenuContent>
                                       </DropdownMenu>

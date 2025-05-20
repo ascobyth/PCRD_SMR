@@ -360,3 +360,8 @@ This implementation allows users to submit equipment reservation requests, which
 - User Concerned: request-management
 - Issue: Add reject reason workflow and editable view dialog
 - Progress: Implemented reject reason dialog, edit mode in RequestViewDetailsDialog, solid menu style, and removed export/print buttons.
+
+## Update - Delete Request Option
+- User Concerned: request-management
+- Issue: Need ability to delete requests from all related collections
+- Progress: Added Delete Request menu action and API to remove requests from RequestList, AsrList, ErList, and TestingSampleList.

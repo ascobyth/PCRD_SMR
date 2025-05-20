@@ -567,7 +567,7 @@ export default function RequestManagementPage() {
         <div className="container px-4 py-6 md:py-8">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Request Management Hub</h1>
+              <h1 className="text-3xl font-bold tracking-tight">Welcome to PCRD Smart Request System</h1>
               <p className="text-muted-foreground">Manage and track all test requests across the PCRD system</p>
             </div>
 

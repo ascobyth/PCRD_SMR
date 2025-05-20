@@ -375,3 +375,8 @@ This implementation allows users to submit equipment reservation requests, which
 - User Concerned: request-management
 - Issue: "Receive All" did not transition samples to the correct status
 - Progress: Updated manage and receive API routes to set `in-progress` status for all samples when requests are received.
+
+## Update - Heading Consistency
+- User Concerned: request-management
+- Issue: Request Management page heading differed from homepage
+- Progress: Updated heading text in `/request-management` page to match the homepage heading.

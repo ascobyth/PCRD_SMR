@@ -26,6 +26,10 @@ const RequestListSchema = new Schema(
       required: true,
       index: true
     },
+    rejectReason: {
+      type: String,
+      description: 'Reason for rejecting the request',
+    },
 
     // Request details
     requestTitle: {

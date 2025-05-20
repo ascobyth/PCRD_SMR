@@ -19,6 +19,8 @@ import { Separator } from "@/components/ui/separator"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Progress } from "@/components/ui/progress"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import {
   Calendar,
   Clock,
@@ -47,16 +49,20 @@ interface RequestViewDetailsDialogProps {
   requestId: string
   open: boolean
   onOpenChange: (open: boolean) => void
+  editable?: boolean
 }
 
 export function RequestViewDetailsDialog({
   requestId,
   open,
   onOpenChange,
+  editable = false,
 }: RequestViewDetailsDialogProps) {
   const [activeTab, setActiveTab] = useState("overview")
   const [loading, setLoading] = useState(true)
   const [requestData, setRequestData] = useState<any>(null)
+  const [formData, setFormData] = useState<any>(null)
+  const [saving, setSaving] = useState(false)
   const [samplesData, setSamplesData] = useState<any[]>([])
   const [testsData, setTestsData] = useState<any[]>([])
   const [asrData, setAsrData] = useState<any>(null)
@@ -152,6 +158,16 @@ export function RequestViewDetailsDialog({
     }
   }, [open, requestId])
 
+  // Sync form data when loading request
+  useEffect(() => {
+    if (editable && requestData) {
+      setFormData({
+        title: requestData.title || "",
+        description: requestData.description || "",
+      })
+    }
+  }, [editable, requestData])
+
   // Format date
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return "Not specified"
@@ -210,6 +226,40 @@ export function RequestViewDetailsDialog({
         return <Badge variant="outline" className="bg-green-50 text-green-800 hover:bg-green-50 border-green-200">ER</Badge>
       default:
         return <Badge variant="outline">{type}</Badge>
+    }
+  }
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    if (!formData) return
+    setFormData({ ...formData, [e.target.name]: e.target.value })
+  }
+
+  const handleSave = async () => {
+    if (!formData || !requestData) return
+    setSaving(true)
+    try {
+      const response = await fetch(`/api/requests/${requestData.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          requestTitle: formData.title,
+          description: formData.description,
+        }),
+      })
+      const result = await response.json()
+      if (result.success) {
+        toast.success("Request updated")
+        setRequestData(result.data)
+        onOpenChange(false)
+      } else {
+        toast.error(result.error || "Failed to update request")
+      }
+    } catch (err) {
+      toast.error("Failed to update request")
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -310,15 +360,30 @@ export function RequestViewDetailsDialog({
 
                       <div>
                         <h4 className="text-sm font-medium text-muted-foreground mb-1">Title</h4>
-                        <p className="text-base font-medium">{requestData.title || "No Title"}</p>
+                        {editable ? (
+                          <Input
+                            name="title"
+                            value={formData?.title || ""}
+                            onChange={handleChange}
+                          />
+                        ) : (
+                          <p className="text-base font-medium">{requestData.title || "No Title"}</p>
+                        )}
                       </div>
 
-                      {requestData.description && (
-                        <div>
-                          <h4 className="text-sm font-medium text-muted-foreground mb-1">Description</h4>
-                          <p className="text-sm">{requestData.description}</p>
-                        </div>
-                      )}
+                      <div>
+                        <h4 className="text-sm font-medium text-muted-foreground mb-1">Description</h4>
+                        {editable ? (
+                          <Textarea
+                            name="description"
+                            value={formData?.description || ""}
+                            onChange={handleChange}
+                            className="min-h-[80px]"
+                          />
+                        ) : (
+                          <p className="text-sm">{requestData.description || "-"}</p>
+                        )}
+                      </div>
 
                       <div className="grid grid-cols-2 gap-4">
                         <div>
@@ -815,22 +880,13 @@ export function RequestViewDetailsDialog({
           </ScrollArea>
         )}
 
-        <DialogFooter className="flex justify-between border-t pt-4">
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" className="gap-1">
-              <Download className="h-4 w-4" />
-              Export
+        <DialogFooter className="flex justify-end border-t pt-4 gap-2">
+          {editable && (
+            <Button onClick={handleSave} disabled={saving}>
+              Save
             </Button>
-            <Button variant="outline" size="sm" className="gap-1">
-              <Printer className="h-4 w-4" />
-              Print
-            </Button>
-          </div>
-          <Button
-            onClick={() => onOpenChange(false)}
-          >
-            Close
-          </Button>
+          )}
+          <Button onClick={() => onOpenChange(false)}>Close</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

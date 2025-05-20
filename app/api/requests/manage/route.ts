@@ -77,6 +77,7 @@ export async function GET(request: Request) {
         samples: req.sample_count || 0,
         department: req.department || "Unknown",
         description: req.description || "No description",
+        rejectReason: req.rejectReason || "",
       }));
     }
     
@@ -112,6 +113,7 @@ export async function GET(request: Request) {
         department: req.department || "Unknown",
         description: req.description || "No description",
         equipment: req.equipment_name || "Unknown Equipment",
+        rejectReason: req.rejectReason || "",
       }));
     }
     
@@ -166,18 +168,20 @@ export async function PATCH(request: Request) {
     if (isErRequest) {
       updatedRequest = await ErList.findOneAndUpdate(
         { request_number: id },
-        { 
+        {
           status,
-          ...(note && { note })
+          ...(note && { note }),
+          ...(status === "rejected" && note ? { rejectReason: note } : {}),
         },
         { new: true }
       );
     } else {
       updatedRequest = await RequestList.findOneAndUpdate(
         { request_number: id },
-        { 
+        {
           status,
-          ...(note && { note })
+          ...(note && { note }),
+          ...(status === "rejected" && note ? { rejectReason: note } : {}),
         },
         { new: true }
       );
@@ -229,9 +233,10 @@ export async function PUT(request: Request) {
     if (erIds.length > 0) {
       const result = await ErList.updateMany(
         { request_number: { $in: erIds } },
-        { 
+        {
           status,
           ...(note && { note }),
+          ...(status === "rejected" && note ? { rejectReason: note } : {}),
           updatedAt: new Date()
         }
       );
@@ -242,9 +247,10 @@ export async function PUT(request: Request) {
     if (regularIds.length > 0) {
       const result = await RequestList.updateMany(
         { request_number: { $in: regularIds } },
-        { 
+        {
           status,
           ...(note && { note }),
+          ...(status === "rejected" && note ? { rejectReason: note } : {}),
           updatedAt: new Date()
         }
       );

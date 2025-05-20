@@ -385,3 +385,8 @@ This implementation allows users to submit equipment reservation requests, which
 - User Concerned: request-management
 - Issue: Needed ability to switch table between request list and testing list
 - Progress: Added `tableView` toggle with API `/api/testing-lists/manage` and updated page to support both views.
+
+## Update - Remove Calendar View
+- User Concerned: request-management
+- Issue: Calendar view was not required and Request View showed no data by default
+- Progress: Removed calendar tab and content, set `Tabs` to list only, ensured default Request View loads data.

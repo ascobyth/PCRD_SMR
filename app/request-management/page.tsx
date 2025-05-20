@@ -91,14 +91,12 @@ const RequestTypeBadge = ({ type }: { type: string }) => {
 
 export default function RequestManagementPage() {
   const [activeTab, setActiveTab] = useState("all")
-  const [activeView, setActiveView] = useState("list")
   const [tableView, setTableView] = useState("request")
   const [statusFilter, setStatusFilter] = useState("all")
   const [priorityFilter, setPriorityFilter] = useState("all")
   const [capabilityFilter, setCapabilityFilter] = useState("all")
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedRequests, setSelectedRequests] = useState<string[]>([])
-  const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedRequest, setSelectedRequest] = useState<any>(null)
   const [summaryDialogOpen, setSummaryDialogOpen] = useState(false)
   const [receiveDialogOpen, setReceiveDialogOpen] = useState(false)
@@ -895,12 +893,11 @@ export default function RequestManagementPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <Tabs defaultValue="list" value={activeView} onValueChange={setActiveView} className="w-full">
+                  <Tabs defaultValue="list" className="w-full">
                     <div className="flex justify-between items-center px-6 py-2 border-b">
                       <div className="flex gap-2">
-                        <TabsList className="grid w-[200px] grid-cols-2">
+                        <TabsList className="grid w-[100px] grid-cols-1">
                           <TabsTrigger value="list">List</TabsTrigger>
-                          <TabsTrigger value="calendar">Calendar</TabsTrigger>
                         </TabsList>
                         <TabsList className="grid w-[220px] grid-cols-2 ml-4" value={tableView} onValueChange={(v) => { setTableView(v); setCurrentPage(1); }}>
                           <TabsTrigger value="request">Request View</TabsTrigger>
@@ -1345,13 +1342,6 @@ export default function RequestManagementPage() {
                       )}
                     </TabsContent>
 
-                    <TabsContent value="calendar" className="m-0 p-6">
-                      <div className="flex flex-col items-center justify-center py-12 bg-muted/10 rounded-md">
-                        <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-                        <p className="text-lg font-medium">Calendar View</p>
-                        <p className="text-muted-foreground">Calendar view is under development</p>
-                      </div>
-                    </TabsContent>
                   </Tabs>
                 </CardContent>
               </Card>
